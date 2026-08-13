@@ -160,8 +160,8 @@ export function SettingsPage() {
 
           <p className="gta-status-hint">{t(gtaHintKey)}</p>
 
-          <div className="gta-mode-grid">
-            <div className="gta-mode-card" data-active={storyOn ? 'true' : 'false'}>
+          <div className="gta-mode-stack">
+            <div className="gta-mode-card gta-mode-card-story" data-active={storyOn ? 'true' : 'false'}>
               <div className="gta-mode-card-head">
                 <strong>{t('settings.gta.modeStory')}</strong>
                 <span className="gta-mode-pill" data-on={storyOn ? 'true' : 'false'}>
@@ -185,113 +185,114 @@ export function SettingsPage() {
                   })}
                 </p>
               ) : null}
-              <Button
-                variant="primary"
-                disabled={gtaBusy || !gta?.validGame || storyOn}
-                onClick={() => {
-                  if (!gta?.hasScriptHook || !gta?.hasDotNet) {
-                    toast.push({
-                      title: t('settings.gta.toastDownloading'),
-                      tone: 'default',
-                    })
-                  }
-                  void runGta(
-                    () => window.gtamoza!.gtaEnable(),
-                    'settings.gta.toastEnabled',
-                  )
-                }}
-              >
-                {t('settings.gta.enable')}
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={gtaBusy || !gta?.validGame || !storyOn}
-                style={{ marginTop: 8 }}
-                onClick={() => {
-                  void (async () => {
-                    setGtaBusy(true)
-                    try {
-                      const result = await window.gtamoza?.gtaLaunchStory()
-                      if (!result?.ok) {
-                        const err = result?.error ?? 'launch_failed'
-                        toast.push({
-                          title:
-                            err === 'already_running'
-                              ? t('settings.gta.toastLaunchRunning')
-                              : t('settings.gta.toastLaunchFailed', { error: err }),
-                          tone: 'error',
-                        })
-                        return
-                      }
-                      const titleKey: MessageKey =
-                        result.store === 'steam'
-                          ? 'settings.gta.toastLaunchedSteam'
-                          : result.store === 'epic' ||
-                              result.note === 'set_epic_launch_options'
-                            ? 'settings.gta.toastLaunchedEpic'
-                            : result.store === 'rockstar' ||
-                                result.note === 'disable_battleye_in_launcher'
-                              ? 'settings.gta.toastLaunchedRockstar'
-                              : 'settings.gta.toastLaunched'
-                      toast.push({ title: t(titleKey), tone: 'success' })
-                    } finally {
-                      setGtaBusy(false)
-                    }
-                  })()
-                }}
-              >
-                {t('settings.gta.launchStory')}
-              </Button>
-              <p className="field-hint" style={{ marginTop: 6 }}>
-                {t('settings.gta.launchStoryHint')}
-              </p>
-              <Button
-                variant="secondary"
-                disabled={gtaBusy || !gta?.validGame || !storyOn}
-                style={{ marginTop: 8 }}
-                onClick={() => {
-                  void (async () => {
-                    if (!window.gtamoza) return
-                    setGtaBusy(true)
-                    try {
-                      const result = await window.gtamoza.gtaHotReload()
-                      if (result?.status) setGta(result.status)
-                      if (!result?.ok) {
-                        toast.push({
-                          title: t('settings.gta.toastFailed', {
-                            error: result?.error ?? 'hot_reload_failed',
-                          }),
-                          tone: 'error',
-                        })
-                        return
-                      }
+              <div className="gta-mode-actions">
+                <Button
+                  variant="primary"
+                  disabled={gtaBusy || !gta?.validGame || storyOn}
+                  onClick={() => {
+                    if (!gta?.hasScriptHook || !gta?.hasDotNet) {
                       toast.push({
-                        title: result.keySent
-                          ? t('settings.gta.toastHotReloaded')
-                          : t('settings.gta.toastHotReloadManual'),
-                        tone: 'success',
+                        title: t('settings.gta.toastDownloading'),
+                        tone: 'default',
                       })
-                    } finally {
-                      setGtaBusy(false)
                     }
-                  })()
-                }}
-              >
-                {t('settings.gta.hotReload')}
-              </Button>
-              <p className="field-hint" style={{ marginTop: 6 }}>
-                {t('settings.gta.hotReloadHint')}
-              </p>
+                    void runGta(
+                      () => window.gtamoza!.gtaEnable(),
+                      'settings.gta.toastEnabled',
+                    )
+                  }}
+                >
+                  {t('settings.gta.enable')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={gtaBusy || !gta?.validGame || !storyOn}
+                  onClick={() => {
+                    void (async () => {
+                      setGtaBusy(true)
+                      try {
+                        const result = await window.gtamoza?.gtaLaunchStory()
+                        if (!result?.ok) {
+                          const err = result?.error ?? 'launch_failed'
+                          toast.push({
+                            title:
+                              err === 'already_running'
+                                ? t('settings.gta.toastLaunchRunning')
+                                : t('settings.gta.toastLaunchFailed', { error: err }),
+                            tone: 'error',
+                          })
+                          return
+                        }
+                        const titleKey: MessageKey =
+                          result.store === 'steam'
+                            ? 'settings.gta.toastLaunchedSteam'
+                            : result.store === 'epic' ||
+                                result.note === 'set_epic_launch_options'
+                              ? 'settings.gta.toastLaunchedEpic'
+                              : result.store === 'rockstar' ||
+                                  result.note === 'disable_battleye_in_launcher'
+                                ? 'settings.gta.toastLaunchedRockstar'
+                                : 'settings.gta.toastLaunched'
+                        toast.push({ title: t(titleKey), tone: 'success' })
+                      } finally {
+                        setGtaBusy(false)
+                      }
+                    })()
+                  }}
+                >
+                  {t('settings.gta.launchStory')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={gtaBusy || !gta?.validGame || !storyOn}
+                  onClick={() => {
+                    void (async () => {
+                      if (!window.gtamoza) return
+                      setGtaBusy(true)
+                      try {
+                        const result = await window.gtamoza.gtaHotReload()
+                        if (result?.status) setGta(result.status)
+                        if (!result?.ok) {
+                          toast.push({
+                            title: t('settings.gta.toastFailed', {
+                              error: result?.error ?? 'hot_reload_failed',
+                            }),
+                            tone: 'error',
+                          })
+                          return
+                        }
+                        toast.push({
+                          title: result.keySent
+                            ? t('settings.gta.toastHotReloaded')
+                            : t('settings.gta.toastHotReloadManual'),
+                          tone: 'success',
+                        })
+                      } finally {
+                        setGtaBusy(false)
+                      }
+                    })()
+                  }}
+                >
+                  {t('settings.gta.hotReload')}
+                </Button>
+              </div>
+              <p className="field-hint">{t('settings.gta.launchStoryHint')}</p>
+              <p className="field-hint">{t('settings.gta.hotReloadHint')}</p>
             </div>
 
-            <div className="gta-mode-card" data-active={onlineSafe ? 'true' : 'false'}>
-              <div className="gta-mode-card-head">
-                <strong>{t('settings.gta.modeOnline')}</strong>
-                <span className="gta-mode-pill" data-on={onlineSafe ? 'true' : 'false'}>
-                  {onlineSafe ? t('settings.gta.onlineReady') : t('settings.gta.onlineBlocked')}
-                </span>
+            <div
+              className="gta-online-bar"
+              data-active={onlineSafe ? 'true' : 'false'}
+            >
+              <div className="gta-online-bar-copy">
+                <div className="gta-mode-card-head">
+                  <strong>{t('settings.gta.modeOnline')}</strong>
+                  <span className="gta-mode-pill" data-on={onlineSafe ? 'true' : 'false'}>
+                    {onlineSafe ? t('settings.gta.onlineReady') : t('settings.gta.onlineBlocked')}
+                  </span>
+                </div>
+                <p className="field-hint">{t('settings.gta.modeOnlineHint')}</p>
               </div>
-              <p className="field-hint">{t('settings.gta.modeOnlineHint')}</p>
               <Button
                 variant="secondary"
                 disabled={gtaBusy || !gta?.canDisable}

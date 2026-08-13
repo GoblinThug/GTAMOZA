@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, PedalMeters, StatusIndicator, WheelGauge } from '../components'
+import { useToast } from '../components/Toast'
 import { useI18n } from '../i18n/useI18n'
 import type { MessageKey } from '../i18n/messages'
 import { useLiveTelemetry } from '../hooks/useLiveTelemetry'
@@ -31,6 +32,7 @@ export function DashboardPage() {
   } = useAppStore()
   const telemetry = useLiveTelemetry()
   const { t } = useI18n()
+  const toast = useToast()
   const profileName =
     profiles.profiles.find((p) => p.id === profiles.selectedProfileId)?.name ?? '—'
   const maxAngle = (activeSettings.steering.wheelAngle ?? 900) / 2
@@ -43,6 +45,30 @@ export function DashboardPage() {
   const [calHint, setCalHint] = useState('')
   const [calError, setCalError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [indL, setIndL] = useState(false)
+  const [indR, setIndR] = useState(false)
+  const [learnedL, setLearnedL] = useState(-1)
+  const [learnedR, setLearnedR] = useState(-1)
+  const [lastPaddleMsg, setLastPaddleMsg] = useState('')
+
+  useEffect(() => {
+    void window.gtamoza?.mozaGetPaddleState?.().then((s) => {
+      if (!s) return
+      setIndL(s.indL)
+      setIndR(s.indR)
+      setLearnedL(s.learnedL)
+      setLearnedR(s.learnedR)
+    })
+    const unsub = window.gtamoza?.onMozaPaddle?.((ev) => {
+      setIndL(ev.indL)
+      setIndR(ev.indR)
+      setLearnedL(ev.learnedL)
+      setLearnedR(ev.learnedR)
+      setLastPaddleMsg(ev.message)
+      toast.push({ title: ev.message, tone: 'success' })
+    })
+    return () => unsub?.()
+  }, [toast])
 
   useEffect(() => {
     if (calStep === 'idle') {
@@ -229,6 +255,48 @@ export function DashboardPage() {
           />
         </div>
         <p className="live-inputs-hint">{t('dashboard.liveInputsHint')}</p>
+      </Card>
+
+      <Card
+        title={t('dashboard.paddlesTitle')}
+        subtitle={t('dashboard.paddlesSubtitle')}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void window.gtamoza?.mozaResetPaddleLearn?.().then((s) => {
+                if (!s) return
+                setIndL(s.indL)
+                setIndR(s.indR)
+                setLearnedL(s.learnedL)
+                setLearnedR(s.learnedR)
+                setLastPaddleMsg(t('dashboard.paddlesReset'))
+                toast.push({ title: t('dashboard.paddlesReset'), tone: 'success' })
+              })
+            }}
+          >
+            {t('dashboard.paddlesResetBtn')}
+          </Button>
+        }
+      >
+        <div className="paddle-debug">
+          <div className="paddle-debug-flags">
+            <span className="paddle-flag" data-on={indL ? 'true' : 'false'}>
+              {t('dashboard.paddleLeft')}: {indL ? t('common.enabled') : t('common.disabled')}
+            </span>
+            <span className="paddle-flag" data-on={indR ? 'true' : 'false'}>
+              {t('dashboard.paddleRight')}: {indR ? t('common.enabled') : t('common.disabled')}
+            </span>
+          </div>
+          <p className="field-hint">
+            {t('dashboard.paddlesLearned', {
+              left: learnedL < 0 ? '—' : String(learnedL),
+              right: learnedR < 0 ? '—' : String(learnedR),
+            })}
+          </p>
+          <p className="paddle-debug-last">{lastPaddleMsg || t('dashboard.paddlesWaiting')}</p>
+        </div>
       </Card>
 
       <Card title={t('dashboard.session')}>

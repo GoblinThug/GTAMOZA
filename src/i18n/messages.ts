@@ -108,7 +108,8 @@ const en = {
   'common.loading': 'Loading GTA Moza Drive…',
   'common.profileSaved': 'Profile saved',
   'common.strength': 'Strength',
-  'common.strengthDesc': 'How strong this effect feels on the wheel.',
+  'common.strengthDesc':
+    'How strong this effect is on the rim. 0 = off feel; higher = more obvious. Use the toggle to disable completely.',
   'common.name': 'Name',
   'common.enabled': 'Enabled',
   'common.disabled': 'Disabled',
@@ -162,31 +163,41 @@ const en = {
   'dashboard.profile': 'Profile',
   'dashboard.steering': 'Steering',
   'dashboard.ffb': 'Game FFB',
+  'dashboard.paddlesTitle': 'Turn signals (paddles)',
+  'dashboard.paddlesSubtitle':
+    'Paddles must be Buttons in Pit House. Press each once — toast shows Button N. First two buttons = left/right.',
+  'dashboard.paddlesWaiting': 'Waiting for paddle button press…',
+  'dashboard.paddlesReset': 'Paddle mapping reset — press left, then right',
+  'dashboard.paddlesResetBtn': 'Reset learn',
+  'dashboard.paddleLeft': 'Left',
+  'dashboard.paddleRight': 'Right',
+  'dashboard.paddlesLearned': 'Learned buttons: L={left} · R={right}',
 
   'steering.title': 'Steering',
   'steering.kicker': 'GTA map',
   'steering.desc':
-    'How the wheel maps into GTA. Physical lock-to-lock and soft lock stay in Pit House.',
+    'How the rim drives the car in GTA. Physical wheel angle and soft lock stay in Pit House — change them there.',
   'steering.feelTitle': 'Rim feel (GTAMOZA FFB)',
   'steering.feelSubtitle':
-    'MOZA-style stack for GTA: game forces + tire SAT + damper/friction/inertia. Pit House Wheel Spring should stay 0%.',
+    'Weight and return of the rim from GTAMOZA. In Pit House set Wheel Spring to 0% so springs do not fight.',
   'steering.gtaMapTitle': 'GTA mapping',
-  'steering.gtaMapSubtitle': 'Only in-game response — not the base feel from Pit House.',
+  'steering.gtaMapSubtitle':
+    'Only how the car turns in game. Does not change base torque or Pit House damper/friction.',
   'steering.sensitivity': 'Sensitivity',
   'steering.sensitivityDesc':
-    'Overall response. Raise for snappier turn-in; lower for calmer highway driving.',
+    'How quickly the car reacts to small wheel moves. Higher = sharper turn-in (sports). Lower = calmer on highways and straights.',
   'steering.linearity': 'Linearity',
   'steering.linearityDesc':
-    'Curve near center. Lower softens the first degrees; higher keeps response more linear.',
+    'Feel around center. Lower = softer first degrees (easier to hold a straight). Higher = more 1:1 with the rim.',
   'steering.deadzone': 'Deadzone',
   'steering.deadzoneDesc':
-    'Ignore tiny wheel movements near center. Useful if the rim drifts slightly at rest.',
+    'Ignores tiny motion near center. Raise a little if the car drifts when you hold the rim still. Keep low for precise steering.',
   'steering.saturation': 'Saturation',
   'steering.saturationDesc':
-    'Caps how far physical input can push in-game steering before hitting full lock.',
+    'How soon full physical lock reaches full lock in GTA. Lower = you hit in-game lock earlier with less wheel travel.',
   'steering.centerOffset': 'Center offset',
   'steering.centerOffsetDesc':
-    'Calibrates a rim that sits a few degrees off true center.',
+    'Shifts “straight ahead” if the rim sits a few degrees off center at rest. Use only for calibration, not for feel.',
 
   'sync.refresh': 'Pull from Pit House',
   'sync.refreshed': 'Angle from Pit House: {angle}°',
@@ -198,46 +209,58 @@ const en = {
     'Waiting for Pit House… Open Pit House with the base connected, then press Pull.',
 
   'ffb.enabled': 'Game FFB enabled',
-  'ffb.enabledDesc': 'Master switch for GTAMOZA force feedback to the wheel (game effects).',
+  'ffb.enabledDesc':
+    'Turns GTAMOZA force feedback on or off. When off, the base still works, but road/kerb/hits from GTA stop.',
   'ffb.overall': 'Overall strength',
   'ffb.overallDesc':
-    'Game FFB intensity (MOZA): master gain for road / kerb / collision from GTA telemetry. R5 → keep high.',
+    'Master volume for all game forces (road, kerb, bumps, crashes). Raise if everything feels weak; lower if the rim is too busy.',
   'ffb.centering': 'Self-aligning torque',
   'ffb.centeringDesc':
-    'Return-to-center spring while moving. If the rim yanks into a turn, lower this (not Road). Pit House Wheel Spring = 0%.',
+    'Return-to-center while driving (like tire SAT). Higher = stronger pull to straight. If the rim yanks into a turn, lower this — not Road. Keep Pit House Wheel Spring at 0%.',
   'ffb.damping': 'Damping',
   'ffb.dampingDesc':
-    'Wheel Damper: resists fast rim motion, cuts oscillation. Rises with speed (MOZA speed-dependent damping).',
+    'Stabilizes the rim and reduces shake/oscillation. Higher = heavier, calmer wheel (good under braking). Too high = numb and slow to turn.',
   'ffb.friction': 'Friction',
-  'ffb.frictionDesc': 'Constant mechanical resistance while turning (MOZA Wheel Friction).',
+  'ffb.frictionDesc':
+    'Constant drag while you turn — “mechanical” resistance. A little adds weight; too much makes slow steering sticky.',
   'ffb.inertia': 'Inertia',
-  'ffb.inertiaDesc': 'Steering-column weight — resists sudden direction changes (MOZA Natural Inertia, mild).',
+  'ffb.inertiaDesc':
+    'Column mass: resists sudden flicks and direction changes. Higher = heavier, more planted. Too high = the rim feels sluggish.',
   'ffb.smoothing': 'Smoothing',
-  'ffb.smoothingDesc': 'Softens game-effect spikes. Keep low so road detail stays readable.',
+  'ffb.smoothingDesc':
+    'Softens sharp spikes from game effects. Higher = smoother but less detail. Keep moderate so asphalt and kerbs stay readable.',
 
   'effects.title': 'Effects',
   'effects.kicker': 'GTA feel',
   'effects.desc':
-    'Surface and event forces for GTA. Base weight and torque stay in Pit House.',
+    'What you feel from the road and events in GTA. Base spring/damper live on the Steering tab and in Pit House.',
   'effects.surfacesTitle': 'Surface & event effects',
-  'effects.surfacesSubtitle': 'Only what GTA sends — not Pit House damper / friction / inertia.',
+  'effects.surfacesSubtitle':
+    'Each slider is one sensation from GTA telemetry. Toggle off anything you do not want on the rim.',
   'effects.road': 'Road',
-  'effects.roadDesc': 'Texture and micro-vibration from asphalt and road grain.',
+  'effects.roadDesc':
+    'Fine asphalt grain / micro-vibration on normal roads. If the rim jitters on a straight, turn this down first (often to 10–20).',
   'effects.kerb': 'Kerb',
-  'effects.kerbDesc': 'Sharp hits and rumble when riding sidewalks or kerbs.',
+  'effects.kerbDesc':
+    'Hard rumble and hits on kerbs and sidewalks. Raise to feel curbs clearly; leave higher than Road so asphalt stays calm.',
   'effects.grass': 'Grass',
-  'effects.grassDesc': 'Softer, mushy resistance off-road or on grass.',
+  'effects.grassDesc':
+    'Softer, mushy shake off-road (grass, dirt, sand). Useful so leaving the tarmac is obvious without being harsh.',
   'effects.suspension': 'Suspension',
-  'effects.suspensionDesc': 'Bumps and chassis heave only — not steering pull. Return force is Self-aligning torque.',
+  'effects.suspensionDesc':
+    'Potholes, bumps and chassis heave through the rim. Does not pull left/right into a turn — return-to-center is Self-aligning torque.',
   'effects.wheelSlip': 'Wheel slip',
-  'effects.wheelSlipDesc': 'Feedback when tyres lose and regain grip.',
+  'effects.wheelSlipDesc':
+    'Texture when tires break traction (spin / slide). Raise for drift feel; lower if the rim chatters while grip is fine.',
   'effects.abs': 'ABS',
-  'effects.absDesc': 'Pulsing under hard braking when ABS intervenes.',
+  'effects.absDesc':
+    'Pulsing under hard braking when wheels lock and ABS kicks in. Keep low unless you want a clear pedal/rim cue.',
   'effects.collision': 'Collision',
-  'effects.collisionDesc': 'Impact spikes from crashes and hard contacts.',
+  'effects.collisionDesc':
+    'Sharp hits from crashes and hard contacts. Raise for punchy impacts; if soft scrapes yank sideways, lower this.',
   'effects.engine': 'Engine',
-  'effects.engineDesc': 'Subtle vibration related to engine load and RPM.',
-
+  'effects.engineDesc':
+    'Light buzz from RPM / throttle load. Usually keep low — high values make highway cruise feel nervous.',
   'profiles.title': 'Profiles',
   'profiles.kicker': 'Presets',
   'profiles.desc': 'Saved GTA mapping and effect presets for different cars.',
@@ -485,7 +508,8 @@ const ru: Record<MessageKey, string> = {
   'common.loading': 'Загрузка GTA Moza Drive…',
   'common.profileSaved': 'Профиль сохранён',
   'common.strength': 'Сила',
-  'common.strengthDesc': 'Насколько сильно этот эффект отдаётся в руль.',
+  'common.strengthDesc':
+    'Насколько сильно эффект отдаётся в руль. 0 ≈ почти не чувствуется; выше — заметнее. Полностью выключить — тумблером справа.',
   'common.name': 'Имя',
   'common.enabled': 'Включено',
   'common.disabled': 'Выключено',
@@ -539,31 +563,41 @@ const ru: Record<MessageKey, string> = {
   'dashboard.profile': 'Профиль',
   'dashboard.steering': 'Угол руля',
   'dashboard.ffb': 'Игровой FFB',
+  'dashboard.paddlesTitle': 'Поворотники (лепестки)',
+  'dashboard.paddlesSubtitle':
+    'В Pit House лепестки = Buttons. Жми по разу — toast покажет Button N. Первые две кнопки = левый/правый.',
+  'dashboard.paddlesWaiting': 'Жду нажатие кнопки лепестка…',
+  'dashboard.paddlesReset': 'Обучение сброшено — нажми левый, потом правый',
+  'dashboard.paddlesResetBtn': 'Сбросить обучение',
+  'dashboard.paddleLeft': 'Левый',
+  'dashboard.paddleRight': 'Правый',
+  'dashboard.paddlesLearned': 'Заученные кнопки: L={left} · R={right}',
 
   'steering.title': 'Руль',
   'steering.kicker': 'В GTA',
   'steering.desc':
-    'Как руль мапится в GTA. Физический угол и soft lock — только в Pit House.',
+    'Как руль крутит машину в GTA. Физический угол и soft lock настраиваются в Pit House — меняй их там.',
   'steering.feelTitle': 'Ощущение обода (FFB GTAMOZA)',
   'steering.feelSubtitle':
-    'Стек как у MOZA: игровые силы + SAT шин + damper/friction/inertia. Wheel Spring в Pit House держи на 0%.',
+    'Вес и возврат руля от GTAMOZA. В Pit House поставь Wheel Spring на 0%, чтобы пружины не дрались.',
   'steering.gtaMapTitle': 'Маппинг в GTA',
-  'steering.gtaMapSubtitle': 'Только отклик в игре — не «ощущение» базы из Pit House.',
+  'steering.gtaMapSubtitle':
+    'Только как машина поворачивает в игре. Не меняет момент базы и damper/friction из Pit House.',
   'steering.sensitivity': 'Чувствительность',
   'steering.sensitivityDesc':
-    'Общая отзывчивость. Выше — острее вход в поворот; ниже — спокойнее на прямых.',
+    'Насколько быстро машина отвечает на маленькие движения руля. Выше — острее вход в поворот. Ниже — спокойнее на прямых и трассе.',
   'steering.linearity': 'Линейность',
   'steering.linearityDesc':
-    'Кривая у центра. Ниже — мягче первые градусы; выше — ближе к линейному отклику.',
+    'Ощущение у центра. Ниже — мягче первые градусы (проще держать прямую). Выше — ближе к «один в один» с ободом.',
   'steering.deadzone': 'Мёртвая зона',
   'steering.deadzoneDesc':
-    'Игнорирует мелкие движения у нуля. Полезно, если обод чуть «плывёт» на месте.',
+    'Игнорирует крошечные движения у нуля. Чуть подними, если машина «плывёт», когда руль стоит. Для точности держи низкой.',
   'steering.saturation': 'Насыщение',
   'steering.saturationDesc':
-    'Ограничивает, насколько далеко физический ввод может увести руль в игре.',
+    'Как рано полный физический угол даёт полный поворот в GTA. Ниже — упираешься в игровой lock раньше, меньшим ходом руля.',
   'steering.centerOffset': 'Смещение центра',
   'steering.centerOffsetDesc':
-    'Калибровка, если руль стоит на несколько градусов мимо центра.',
+    'Сдвигает «прямо», если обод в покое стоит на пару градусов мимо центра. Только для калибровки, не для «ощущения».',
 
   'sync.refresh': 'Подтянуть из Pit House',
   'sync.refreshed': 'Угол из Pit House: {angle}°',
@@ -575,46 +609,58 @@ const ru: Record<MessageKey, string> = {
     'Ждём Pit House… Открой Pit House с подключённой базой и нажми «Подтянуть».',
 
   'ffb.enabled': 'Игровой FFB включён',
-  'ffb.enabledDesc': 'Главный выключатель сил GTAMOZA на руль (игровые эффекты).',
+  'ffb.enabledDesc':
+    'Включает или выключает отдачу GTAMOZA. База работает и без этого, но дорога / бордюр / удары из GTA пропадут.',
   'ffb.overall': 'Общая сила',
   'ffb.overallDesc':
-    'Game FFB Intensity (MOZA): сила дорожных / бордюрных / ударных эффектов из телеметрии GTA. На R5 держи высоко.',
+    'Общая громкость всех игровых сил (дорога, бордюр, ямы, аварии). Подними, если всё слабо; опусти, если руль слишком «шумный».',
   'ffb.centering': 'Самовыравнивание (SAT)',
   'ffb.centeringDesc':
-    'Пружина возврата в центр на скорости. Если руль рвёт в поворот — крути это вниз (не Дорогу). В Pit House Wheel Spring = 0%.',
+    'Возврат в центр на ходу (как SAT шин). Выше — сильнее тянет к прямой. Если руль рвёт в поворот — крути это вниз, не «Дорогу». Wheel Spring в Pit House = 0%.',
   'ffb.damping': 'Демпфирование',
   'ffb.dampingDesc':
-    'Wheel Damper: гасит дёрганье и осцилляции. Растёт со скоростью (как speed-dependent damping у MOZA).',
+    'Стабилизирует обод и гасит дрожь / осцилляции. Выше — тяжелее и спокойнее (удобно на торможении). Слишком высоко — руль «ватный» и медленный.',
   'ffb.friction': 'Трение',
-  'ffb.frictionDesc': 'Постоянное сопротивление при вращении обода (MOZA Wheel Friction).',
+  'ffb.frictionDesc':
+    'Постоянное сопротивление при вращении — «механический» вес. Немного добавляет тяжести; слишком много — липкий медленный поворот.',
   'ffb.inertia': 'Инерция',
-  'ffb.inertiaDesc': 'Вес рулевой колонки — сопротивление резким сменам направления (MOZA Natural Inertia).',
+  'ffb.inertiaDesc':
+    'Масса колонки: сопротивляется резким рывкам и смене направления. Выше — тяжелее и «собраннее». Слишком высоко — обод вялый.',
   'ffb.smoothing': 'Сглаживание',
-  'ffb.smoothingDesc': 'Смягчает пики эффектов. Держи низко, чтобы дорога оставалась читаемой.',
+  'ffb.smoothingDesc':
+    'Смягчает резкие пики игровых эффектов. Выше — ровнее, но меньше деталей. Держи умеренно, чтобы асфальт и бордюр читались.',
 
   'effects.title': 'Эффекты',
   'effects.kicker': 'Ощущение GTA',
   'effects.desc':
-    'Силы поверхностей и событий для GTA. Тяжесть и момент базы — в Pit House.',
+    'Что ты чувствуешь от дороги и событий в GTA. Вес базы и пружина — на вкладке «Руль» и в Pit House.',
   'effects.surfacesTitle': 'Поверхности и события',
-  'effects.surfacesSubtitle': 'Только то, что даёт GTA — не damper / friction / inertia из Pit House.',
+  'effects.surfacesSubtitle':
+    'Каждый ползунок — одно ощущение из телеметрии GTA. Выключи то, что не нужно на руле.',
   'effects.road': 'Дорога',
-  'effects.roadDesc': 'Микровибрации и зерно асфальта.',
+  'effects.roadDesc':
+    'Мелкое зерно асфальта / микродрожь на обычной дороге. Если на прямой руль дёргается — сначала опусти это (часто до 10–20).',
   'effects.kerb': 'Бордюр',
-  'effects.kerbDesc': 'Резкие удары и гул на бордюрах и тротуаре.',
+  'effects.kerbDesc':
+    'Жёсткий гул и удары на бордюрах и тротуаре. Подними, чтобы бордюр читался; держи выше «Дороги», чтобы асфальт оставался спокойным.',
   'effects.grass': 'Трава',
-  'effects.grassDesc': 'Мягкое «вязкое» сопротивление на траве и бездорожье.',
+  'effects.grassDesc':
+    'Мягкая «вязкая» тряска вне асфальта (трава, грунт, песок). Чтобы съезд с дороги был заметен, но не жёстким.',
   'effects.suspension': 'Подвеска',
-  'effects.suspensionDesc': 'Только ямы и ход подвески — не тяга руля. Возврат в центр = Самовыравнивание (SAT).',
+  'effects.suspensionDesc':
+    'Ямы, кочки и ход кузова в обод. Не тянет руль влево/вправо в поворот — возврат в центр это «Самовыравнивание (SAT)».',
   'effects.wheelSlip': 'Пробуксовка',
-  'effects.wheelSlipDesc': 'Ощущение потери и возврата сцепления шин.',
+  'effects.wheelSlipDesc':
+    'Текстура, когда шины срываются (пробуксовка / занос). Выше — для дрифта; ниже, если руль трещит при нормальном сцеплении.',
   'effects.abs': 'ABS',
-  'effects.absDesc': 'Пульсация при срабатывании ABS на жёстком торможении.',
+  'effects.absDesc':
+    'Пульсация при жёстком торможении, когда срабатывает ABS. Держи низко, если не нужна явная подсказка на руле.',
   'effects.collision': 'Столкновение',
-  'effects.collisionDesc': 'Удары от аварий и жёстких контактов.',
+  'effects.collisionDesc':
+    'Резкие удары от аварий и жёстких контактов. Подними для «ударных» thrash; если лёгкие касания дёргают вбок — опусти.',
   'effects.engine': 'Двигатель',
-  'effects.engineDesc': 'Лёгкая вибрация от нагрузки и оборотов мотора.',
-
+  'effects.engineDesc':
+    'Лёгкий buzz от оборотов / газа. Обычно держи низко — на высоких значениях прямая кажется нервной.',
   'profiles.title': 'Профили',
   'profiles.kicker': 'Пресеты',
   'profiles.desc': 'Сохранённый маппинг и эффекты GTA под разные машины.',

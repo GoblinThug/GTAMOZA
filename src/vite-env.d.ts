@@ -122,6 +122,33 @@ export type GtamozaApi = {
   onMozaStatus: (callback: (status: MozaHardwareStatus) => void) => () => void
   onMozaSample: (callback: (sample: MozaLiveSample) => void) => () => void
   onMozaBaseSync: (callback: (sync: MozaBaseSync) => void) => () => void
+  mozaGetPaddleState: () => Promise<{
+    indL: boolean
+    indR: boolean
+    learnedL: number
+    learnedR: number
+    lastEventAt: number
+  }>
+  mozaResetPaddleLearn: () => Promise<{
+    indL: boolean
+    indR: boolean
+    learnedL: number
+    learnedR: number
+    lastEventAt: number
+  }>
+  onMozaPaddle: (
+    callback: (event: {
+      at: number
+      source: 'button' | 'axis'
+      button?: number
+      role: string
+      indL: boolean
+      indR: boolean
+      learnedL: number
+      learnedR: number
+      message: string
+    }) => void,
+  ) => () => void
   gtaGetStatus: () => Promise<GtaModStatus>
   gtaPickFolder: () => Promise<{ ok: boolean; status: GtaModStatus; error?: string }>
   gtaEnable: () => Promise<{ ok: boolean; status: GtaModStatus; error?: string }>

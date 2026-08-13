@@ -186,6 +186,40 @@ const api = {
     ipcRenderer.on('moza:baseSync', listener)
     return () => ipcRenderer.removeListener('moza:baseSync', listener)
   },
+  mozaGetPaddleState: (): Promise<{
+    indL: boolean
+    indR: boolean
+    learnedL: number
+    learnedR: number
+    lastEventAt: number
+  }> => ipcRenderer.invoke('moza:getPaddleState'),
+  mozaResetPaddleLearn: (): Promise<{
+    indL: boolean
+    indR: boolean
+    learnedL: number
+    learnedR: number
+    lastEventAt: number
+  }> => ipcRenderer.invoke('moza:resetPaddleLearn'),
+  onMozaPaddle: (
+    callback: (event: {
+      at: number
+      source: 'button' | 'axis'
+      button?: number
+      role: string
+      indL: boolean
+      indR: boolean
+      learnedL: number
+      learnedR: number
+      message: string
+    }) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      event: Parameters<typeof callback>[0],
+    ) => callback(event)
+    ipcRenderer.on('moza:paddle', listener)
+    return () => ipcRenderer.removeListener('moza:paddle', listener)
+  },
 
   gtaGetStatus: (): Promise<GtaModStatus> => ipcRenderer.invoke('gta:getStatus'),
   gtaPickFolder: (): Promise<{ ok: boolean; status: GtaModStatus; error?: string }> =>

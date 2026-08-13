@@ -59,6 +59,11 @@ namespace GTAMOZA
         /// <summary>MOZA clutch-paddle turn signals from Electron.</summary>
         bool _indL;
         bool _indR;
+        bool _prevIndL;
+        bool _prevIndR;
+        /// <summary>0 = FiveM-style (0=L,1=R), 1 = SHVDN-style (true=L,false=R).</summary>
+        int _indNativeMode = -1;
+        bool _indNativeBroken;
         int _handlingVehHandle;
         float _handlingSteerLockSaved = -1f;
         /// <summary>Reached a full stop (may still be holding the first brake).</summary>
@@ -332,13 +337,13 @@ namespace GTAMOZA
         }
 
         /// <summary>
-        /// NPC-style blinkers via SET_VEHICLE_INDICATOR_LIGHTS every frame.
-        /// NativeDB: turnSignal 0 = left, 1 = right.
+        /// Turn signals every frame. Probe once which native arg convention works
+        /// (FiveM 0/1 vs SHVDN true/false). When native sticks, leave the flag ON and
+        /// let GTA's own ~1s blink run. Only software-blink (300ms) for high-beam fallback.
         /// </summary>
         void ApplyIndicators()
         {
             if (!_hasControls) return;
-            // Keep last paddle state for a bit after UDP hiccups
             if (NowMs() - _controlsAt > 2500) return;
 
             var ped = Game.Player.Character;
@@ -346,13 +351,101 @@ namespace GTAMOZA
             var veh = ped.CurrentVehicle;
             if (veh == null || !veh.Exists() || veh.Driver != ped) return;
 
+            int handle = veh.Handle;
+            bool wantL = _indL;
+            bool wantR = _indR;
+            // Soft blink only for HL fallback (0.3s half-period). Native path stays steady ON.
+            bool phaseOn = ((Game.GameTime / 300) & 1) == 0;
+            bool leftLit = wantL;
+            bool rightLit = wantR;
+            if (_indNativeBroken)
+            {
+                leftLit = wantL && phaseOn;
+                rightLit = wantR && phaseOn;
+            }
+
             try
             {
-                int handle = veh.Handle;
-                Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, _indL);
-                Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, _indR);
+                if (_indNativeMode < 0 && (wantL || wantR))
+                {
+                    // Probe: FiveM docs / many scripts use 0=left, 1=right
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, true);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, false);
+                    bool bitL = false;
+                    try { bitL = veh.IsLeftIndicatorLightOn; } catch { }
+                    if (bitL)
+                    {
+                        _indNativeMode = 0;
+                        Log("indicator native mode=FiveM(0=L,1=R) readback OK");
+                    }
+                    else
+                    {
+                        Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, true, true);
+                        Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, false, false);
+                        try { bitL = veh.IsLeftIndicatorLightOn; } catch { bitL = false; }
+                        if (bitL)
+                        {
+                            _indNativeMode = 1;
+                            Log("indicator native mode=SHVDN(true=L) readback OK");
+                        }
+                        else
+                        {
+                            _indNativeMode = 0; // still try FiveM; mark broken for HL fallback
+                            _indNativeBroken = true;
+                            Log("indicator native readback FAILED — using high-beam fallback");
+                        }
+                    }
+                }
+
+                if (_indNativeMode == 1)
+                {
+                    // Enhanced: SHVDN true/false is visually swapped vs property names
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, true, rightLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, false, leftLit);
+                    try
+                    {
+                        veh.IsLeftIndicatorLightOn = rightLit;
+                        veh.IsRightIndicatorLightOn = leftLit;
+                    }
+                    catch { }
+                }
+                else
+                {
+                    // FiveM docs say 0=L,1=R — on Enhanced that pair is also swapped
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, rightLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, leftLit);
+                }
+
+                if (_indNativeBroken && (wantL || wantR))
+                {
+                    try { veh.AreHighBeamsOn = phaseOn; }
+                    catch
+                    {
+                        try { Function.Call(Hash.SET_VEHICLE_FULLBEAM, handle, phaseOn); }
+                        catch { }
+                    }
+                }
+                else if (_indNativeBroken && !wantL && !wantR)
+                {
+                    try { veh.AreHighBeamsOn = false; } catch { }
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogRare("indicators apply: " + ex.Message);
+            }
+
+            if (_indL != _prevIndL || _indR != _prevIndR)
+            {
+                _prevIndL = _indL;
+                _prevIndR = _indR;
+                string label =
+                    _indL && _indR ? "HAZARDS" :
+                    _indL ? "LEFT" :
+                    _indR ? "RIGHT" :
+                    "OFF";
+                Log("indicators " + label + " L=" + _indL + " R=" + _indR + " mode=" + _indNativeMode + " broken=" + _indNativeBroken);
+            }
         }
 
         static float SoftPedal(float x, float gamma)

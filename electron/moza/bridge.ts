@@ -164,19 +164,77 @@ let indicatorRight = false
 let learnedPadBtnL = -1
 let learnedPadBtnR = -1
 let prevBtnMask = 0
+let lastPaddleEventAt = 0
+
+export type MozaPaddleEvent = {
+  at: number
+  source: 'button' | 'axis'
+  /** DI button index when source=button */
+  button?: number
+  role: 'left' | 'right' | 'hazards' | 'unmapped' | 'learn-left' | 'learn-right'
+  indL: boolean
+  indR: boolean
+  learnedL: number
+  learnedR: number
+  /** Human-readable line for UI / toast */
+  message: string
+}
+
+function emitPaddleEvent(partial: Omit<MozaPaddleEvent, 'at' | 'indL' | 'indR' | 'learnedL' | 'learnedR'>) {
+  const event: MozaPaddleEvent = {
+    ...partial,
+    at: Date.now(),
+    indL: indicatorLeft,
+    indR: indicatorRight,
+    learnedL: learnedPadBtnL,
+    learnedR: learnedPadBtnR,
+  }
+  lastPaddleEventAt = event.at
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('moza:paddle', event)
+  }
+}
+
+export function getPaddleDebugState() {
+  return {
+    indL: indicatorLeft,
+    indR: indicatorRight,
+    learnedL: learnedPadBtnL,
+    learnedR: learnedPadBtnR,
+    lastEventAt: lastPaddleEventAt,
+  }
+}
+
+export function resetPaddleLearn() {
+  learnedPadBtnL = -1
+  learnedPadBtnR = -1
+  padLHeld = false
+  padRHeld = false
+  prevBtnMask = 0
+  indicatorLeft = false
+  indicatorRight = false
+  emitPaddleEvent({
+    source: 'button',
+    role: 'unmapped',
+    message: 'Paddle learn reset — press left paddle, then right',
+  })
+  return getPaddleDebugState()
+}
 
 /**
  * Rising-edge toggle:
  * left = left indicator, right = right, both = hazards, same again = off.
  */
-function applyPaddleEdges(padL: boolean, padR: boolean): boolean {
+function applyPaddleEdges(padL: boolean, padR: boolean, source: 'button' | 'axis' = 'axis'): boolean {
   let changed = false
+  let role: MozaPaddleEvent['role'] | null = null
   if (padL && padR) {
     if (!(padLHeld && padRHeld)) {
       const hazOn = !(indicatorLeft && indicatorRight)
       indicatorLeft = hazOn
       indicatorRight = hazOn
       changed = true
+      role = 'hazards'
     }
   } else {
     if (padL && !padLHeld) {
@@ -186,6 +244,7 @@ function applyPaddleEdges(padL: boolean, padR: boolean): boolean {
         indicatorRight = false
       }
       changed = true
+      role = 'left'
     }
     if (padR && !padRHeld) {
       if (indicatorRight && !indicatorLeft) indicatorRight = false
@@ -194,10 +253,23 @@ function applyPaddleEdges(padL: boolean, padR: boolean): boolean {
         indicatorLeft = false
       }
       changed = true
+      role = 'right'
     }
   }
   padLHeld = padL
   padRHeld = padR
+  if (changed && role) {
+    emitPaddleEvent({
+      source,
+      role,
+      message:
+        role === 'hazards'
+          ? `Hazards ${indicatorLeft && indicatorRight ? 'ON' : 'OFF'}`
+          : role === 'left'
+            ? `Left indicator ${indicatorLeft ? 'ON' : 'OFF'}`
+            : `Right indicator ${indicatorRight ? 'ON' : 'OFF'}`,
+    })
+  }
   return changed
 }
 
@@ -230,14 +302,14 @@ function updatePaddleIndicators(rawAxes: number[]): boolean {
   }
 
   const delta = raw - paddleRest
-  return applyPaddleEdges(delta < -PADDLE_DEADZONE, delta > PADDLE_DEADZONE)
+  return applyPaddleEdges(delta < -PADDLE_DEADZONE, delta > PADDLE_DEADZONE, 'axis')
 }
 
 /** Combined-axis clutch paddles: normalized −1…1 from FFB-host. */
 function updatePaddleFromNorm(y: number): boolean {
   if (!Number.isFinite(y)) return false
   const n = Math.max(-1, Math.min(1, y))
-  return applyPaddleEdges(n < -PADDLE_NORM_DEAD, n > PADDLE_NORM_DEAD)
+  return applyPaddleEdges(n < -PADDLE_NORM_DEAD, n > PADDLE_NORM_DEAD, 'axis')
 }
 
 /**
@@ -247,12 +319,13 @@ function updatePaddleFromNorm(y: number): boolean {
 function updatePaddleFromSides(left: number, right: number): boolean {
   const l = Number.isFinite(left) ? left : 0
   const r = Number.isFinite(right) ? right : 0
-  return applyPaddleEdges(l > PADDLE_NORM_DEAD, r > PADDLE_NORM_DEAD)
+  return applyPaddleEdges(l > PADDLE_NORM_DEAD, r > PADDLE_NORM_DEAD, 'axis')
 }
 
 /**
  * Button bitmask from FFB-host (bit i = DI button i).
  * Learns the first two distinct paddle buttons as L/R turn signals.
+ * Emits a UI event on every rising edge so users can verify clicks.
  */
 function updatePaddleFromBtnMask(mask: number): boolean {
   if (!Number.isFinite(mask)) return false
@@ -269,17 +342,52 @@ function updatePaddleFromBtnMask(mask: number): boolean {
     if (learnedPadBtnL < 0) {
       learnedPadBtnL = i
       changed = toggleIndicatorLeft() || changed
+      emitPaddleEvent({
+        source: 'button',
+        button: i,
+        role: 'learn-left',
+        message: `Button ${i} → LEFT paddle (learned). Indicator ${indicatorLeft ? 'ON' : 'OFF'}`,
+      })
       console.log(`[moza] turn-signal left paddle learned as button ${i}`)
       continue
     }
     if (learnedPadBtnR < 0 && i !== learnedPadBtnL) {
       learnedPadBtnR = i
       changed = toggleIndicatorRight() || changed
+      emitPaddleEvent({
+        source: 'button',
+        button: i,
+        role: 'learn-right',
+        message: `Button ${i} → RIGHT paddle (learned). Indicator ${indicatorRight ? 'ON' : 'OFF'}`,
+      })
       console.log(`[moza] turn-signal right paddle learned as button ${i}`)
       continue
     }
-    if (i === learnedPadBtnL) changed = toggleIndicatorLeft() || changed
-    else if (i === learnedPadBtnR) changed = toggleIndicatorRight() || changed
+    if (i === learnedPadBtnL) {
+      changed = toggleIndicatorLeft() || changed
+      emitPaddleEvent({
+        source: 'button',
+        button: i,
+        role: 'left',
+        message: `Button ${i} (LEFT) → indicator ${indicatorLeft ? 'ON' : 'OFF'}`,
+      })
+    } else if (i === learnedPadBtnR) {
+      changed = toggleIndicatorRight() || changed
+      emitPaddleEvent({
+        source: 'button',
+        button: i,
+        role: 'right',
+        message: `Button ${i} (RIGHT) → indicator ${indicatorRight ? 'ON' : 'OFF'}`,
+      })
+    } else {
+      // Still notify so user sees the click even if not mapped to indicators
+      emitPaddleEvent({
+        source: 'button',
+        button: i,
+        role: 'unmapped',
+        message: `Button ${i} pressed (not a learned paddle — L=${learnedPadBtnL} R=${learnedPadBtnR})`,
+      })
+    }
   }
   return changed
 }
@@ -804,7 +912,6 @@ function openBestDevice(): MozaHardwareStatus {
         lastBrake = parsed.brake
         lastClutch = parsed.clutch
         lastRawAxes = parsed.rawAxes
-        updatePaddleIndicators(parsed.rawAxes)
         lastReportAt = Date.now()
         // Lowest-latency path: don't wait for the 16ms UI sample timer
         flushGtaControlsNow()
@@ -1286,6 +1393,8 @@ export function initMozaBridge() {
   )
   ipcMain.handle('moza:stopFfbTest', () => stopMozaFfbTest())
   ipcMain.handle('moza:getFfbTestState', () => getMozaFfbTestState())
+  ipcMain.handle('moza:getPaddleState', () => getPaddleDebugState())
+  ipcMain.handle('moza:resetPaddleLearn', () => resetPaddleLearn())
 
   onSerialBaseSync((sync) => {
     // Apply Moza angle in the main process immediately (don't wait for React)
@@ -1352,37 +1461,11 @@ export function initMozaBridge() {
           padR?: number
         }
         const hidLive = Boolean(device) && Date.now() - lastReportAt < 400
-        // Paddles from FFB-host (Exclusive blocks HID).
-        // 1) Button bitmask — shift paddles / Pit House "Button" mode (auto-learn L/R)
-        // 2) Axis L/R — combined/independent clutch paddles
+        // Turn signals = DI *buttons* only (Pit House paddle = Button mode).
+        // Do NOT map Y/left/right axes — those chatter and spam ON/OFF.
         let paddleChanged = false
         if (typeof j.btns === 'number') {
-          paddleChanged = updatePaddleFromBtnMask(j.btns) || paddleChanged
-        }
-        const leftT = typeof j.left === 'number' ? j.left : 0
-        const rightT = typeof j.right === 'number' ? j.right : 0
-        const yAbs = Math.abs(typeof j.y === 'number' ? j.y : 0)
-        const axisActive =
-          leftT > PADDLE_NORM_DEAD ||
-          rightT > PADDLE_NORM_DEAD ||
-          yAbs > PADDLE_NORM_DEAD
-        if (axisActive) {
-          if (leftT > 0.02 || rightT > 0.02) {
-            paddleChanged = updatePaddleFromSides(leftT, rightT) || paddleChanged
-          } else if (typeof j.y === 'number') {
-            paddleChanged = updatePaddleFromNorm(j.y) || paddleChanged
-          }
-        } else {
-          const candidates = [j.z, j.rz, j.s0].filter(
-            (v): v is number => typeof v === 'number' && Number.isFinite(v),
-          )
-          let best = 0
-          for (const c of candidates) {
-            if (Math.abs(c) > Math.abs(best)) best = c
-          }
-          if (Math.abs(best) > PADDLE_NORM_DEAD) {
-            paddleChanged = updatePaddleFromNorm(best) || paddleChanged
-          }
+          paddleChanged = updatePaddleFromBtnMask(j.btns)
         }
 
         if (typeof j.steer === 'number' && !Number.isNaN(j.steer) && !hidLive) {
