@@ -1,7 +1,7 @@
 {
   "name": "gtamoza",
   "version": "1.0.0",
-  "description": "GTA Moza Drive — MOZA R5 force feedback control for GTA V Enhanced Story Mode",
+  "description": "GTA Moza Drive — force feedback for MOZA wheel bases (R3/R5/R9/…) in GTA V Enhanced Story Mode",
   "author": "Goblin_Thug",
   "main": "dist-electron/main.js",
   "private": true,

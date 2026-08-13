@@ -48,6 +48,7 @@ npm run dist:win       # → папка release/
 | `tools/ffb-host/` | DirectInput FFB host (`gtamoza-ffb.exe`) |
 | `shared/` | Общие типы и дефолты профилей |
 | `build/` | Иконки и ресурсы сборки |
+| `docs/` | Инструкция для пользователей ([USAGE.md](docs/USAGE.md)) |
 | `.github/workflows/` | CI / релизы |
 
 ## Что желательно соблюдать
@@ -118,6 +119,7 @@ npm run dist:win       # → release/
 | `tools/ffb-host/` | DirectInput FFB host (`gtamoza-ffb.exe`) |
 | `shared/` | Shared types and profile defaults |
 | `build/` | Icons and packaging resources |
+| `docs/` | End-user guide ([USAGE.md](docs/USAGE.md)) |
 | `.github/workflows/` | CI / releases |
 
 ## Guidelines
