@@ -170,6 +170,15 @@ export class ElectronSettingsService implements SettingsService {
     this.cache = await window.gtamoza.saveSettings(patch)
     return this.cache
   }
+
+  async restoreBackup() {
+    if (!window.gtamoza?.restoreSettingsBackup) {
+      return { profiles: memoryProfiles(), settings: this.cache, ok: false }
+    }
+    const result = await window.gtamoza.restoreSettingsBackup()
+    this.cache = result.settings
+    return { profiles: result.profiles, settings: result.settings, ok: result.ok }
+  }
 }
 
 export class ElectronUpdateService implements UpdateService {

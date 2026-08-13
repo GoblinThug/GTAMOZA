@@ -39,17 +39,17 @@ function createBuiltinProfiles(): Profile[] {
         s.steering.sensitivity = 72
         s.steering.linearity = 24
         s.ffb.overallStrength = 100
-        s.ffb.selfAligningTorque = 60
-        s.ffb.damping = 28
-        s.ffb.friction = 12
-        s.ffb.inertia = 10
-        s.ffb.smoothing = 16
-        s.effects.road.strength = 74
-        s.effects.kerb.strength = 86
-        s.effects.suspension.strength = 72
-        s.effects.wheelSlip.strength = 58
-        s.effects.collision.strength = 80
-        s.effects.engine.strength = 34
+        s.ffb.selfAligningTorque = 44
+        s.ffb.damping = 48
+        s.ffb.friction = 14
+        s.ffb.inertia = 14
+        s.ffb.smoothing = 24
+        s.effects.road.strength = 24
+        s.effects.kerb.strength = 64
+        s.effects.suspension.strength = 64
+        s.effects.wheelSlip.strength = 34
+        s.effects.collision.strength = 66
+        s.effects.engine.strength = 10
       },
     },
     {
@@ -60,18 +60,18 @@ function createBuiltinProfiles(): Profile[] {
         s.steering.sensitivity = 68
         s.steering.linearity = 34
         s.ffb.overallStrength = 100
-        s.ffb.selfAligningTorque = 76
-        s.ffb.damping = 38
-        s.ffb.friction = 12
-        s.ffb.inertia = 14
-        s.ffb.smoothing = 14
-        s.effects.road.strength = 72
-        s.effects.kerb.strength = 88
-        s.effects.suspension.strength = 78
-        s.effects.wheelSlip.strength = 50
-        s.effects.collision.strength = 84
-        s.effects.abs.strength = 48
-        s.effects.engine.strength = 36
+        s.ffb.selfAligningTorque = 48
+        s.ffb.damping = 58
+        s.ffb.friction = 15
+        s.ffb.inertia = 18
+        s.ffb.smoothing = 22
+        s.effects.road.strength = 20
+        s.effects.kerb.strength = 68
+        s.effects.suspension.strength = 70
+        s.effects.wheelSlip.strength = 30
+        s.effects.collision.strength = 70
+        s.effects.abs.strength = 24
+        s.effects.engine.strength = 8
       },
     },
     {
@@ -287,6 +287,24 @@ export function resetProfile(id: string): ProfilesStore {
   const store = loadProfiles()
   const profile = store.profiles.find((p) => p.id === id)
   if (!profile) return store
+
+  // Prefer locked backup snapshot when present (ideal factory lock).
+  try {
+    // Lazy require avoids circular import with settings-backup → profile-store
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getBackupProfileSettings } = require('./settings-backup') as {
+      getBackupProfileSettings: (id: string) => ProfileSettings | null
+    }
+    const fromBackup = getBackupProfileSettings(id)
+    if (fromBackup) {
+      profile.settings = fromBackup
+      profile.updatedAt = nowIso()
+      return writeStore(store)
+    }
+  } catch {
+    /* fall through */
+  }
+
   // Builtin presets (Sports / Drift / …) restore their template; everything else → factory Default.
   const builtins = createBuiltinProfiles()
   const builtin = builtins.find((p) => p.id === id)

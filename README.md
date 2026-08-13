@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Force feedback для баз MOZA в GTA V Enhanced Story Mode</strong><br />
-  R3 / R5 / R9 / R12 / R16 · профили · эффекты · плагин
+  R3 / R5 / R9 / R12 / R16 · телеметрия · физика руля · профили
 </p>
 
 <p align="center">
@@ -36,13 +36,17 @@
 
 ## ✨ Что это
 
-**GTA Moza Drive (GTAMOZA)** — десктопное приложение для **баз MOZA** (R3, R5, R9, R12, R16 и др.): синтез force feedback по телеметрии GTA V Enhanced **Story Mode**, профили ощущений и установка плагина одной кнопкой. Основной сценарий — экосистема MOZA; при отсутствии MOZA host может взять другое DirectInput FFB-устройство.
+**GTA Moza Drive (GTAMOZA)** — десктопное приложение для **баз MOZA** (R3, R5, R9, R12, R16 и др.): синтез force feedback по телеметрии GTA V Enhanced **Story Mode**, профили ощущений и установка плагина одной кнопкой.
+
+У GTA нет настоящей шинной физики (как в iRacing / ACC). GTAMOZA строит **свой стек**: отслеживание машины в плагине → синтез эффектов в Electron → механическая колонка в DirectInput host.
 
 | | Возможность |
 |---|---|
-| 🎮 | FFB из телеметрии Story Mode (дорога, бордюр, slip, удары, SAT) |
-| 🛞 | DirectInput host `gtamoza-ffb` → база **MOZA** (Exclusive; не только R5) |
+| 📡 | Телеметрия v2: скорость, yaw, slip, поверхность, bump, collision, load |
+| 🧲 | Физика руля: SAT-пружина + damp / friction / inertia + игровые эффекты |
+| 🛞 | DirectInput host `gtamoza-ffb` → база **MOZA** (Exclusive) |
 | 🧩 | Плагин `GTAMOZA.dll` (ScriptHookVDotNet) — ставится из приложения |
+| 🚦 | Поворотники на лепестках (авто-обучение кнопок / ось сцепления) |
 | 🛡️ | «Prepare for Online» — парковка хуков перед Online |
 | 🎛️ | Профили: Default / Sports / Supercars / Drift / Offroad |
 | 🎚️ | Эффекты: дорога, kerb, grass, подвеска, slip, ABS, collision, engine |
@@ -50,7 +54,7 @@
 | 🎨 | Тёмная / светлая / system тема, **ru** + **en** |
 | ⬆️ | Автообновления с GitHub Releases (Setup) |
 
-Текущая версия в репозитории: **`1.0.0`** (актуальный номер — всегда в [Releases](https://github.com/GoblinThug/GTAMOZA/releases)).
+Текущая версия в репозитории: **`2.0.0`** (актуальный номер — всегда в [Releases](https://github.com/GoblinThug/GTAMOZA/releases)).
 
 > ⚠️ **Только Story Mode.** Script Hook / ASI loader **нельзя** использовать в Online. Перед Online — кнопка **Prepare for Online** и отключение `-nobattleye` / BattlEye по правилам Rockstar.
 
@@ -94,19 +98,117 @@ Hot-reload плагина в игре: **F11** (появится субтитр 
 
 ---
 
-## 📚 Как это устроено
+## 📡 Системы отслеживания
+
+Плагин `GTAMOZA.dll` каждый тик читает машину игрока и шлёт **телеметрию v2** на `127.0.0.1:29755` (JSON).
+
+### Что отслеживается
+
+| Канал | Откуда | Зачем для FFB / управления |
+|---|---|---|
+| **Скорость / RPM / передача** | Vehicle | Пороги «едет / стоит», сила эффектов |
+| **Steer / throttle / brake / clutch** | UDP 29757 от приложения | Ввод с руля и педалей в игру |
+| **accelFwd / accelLat** | Δvelocity в осях кузова | Нагрузка, удары, направление collision |
+| **yawRate / pitchRate / rollRate** | LocalRotationVelocity | Поворот, lean, активность руления |
+| **wheelSlip** | wheel speed vs body + yaw | Пробуксовка / потеря сцепления |
+| **surface / surfL / surfR / matId** | материал под колёсами | Asphalt / kerb / grass / dirt — зерно дороги |
+| **bump** | вертикальная Δ позиции | Ямы и неровности |
+| **collision / colHard** | health + рывки accel | Удары и жёсткость контакта |
+| **airborne / wheelsDown** | колёса в воздухе | Глушение текстуры в полёте |
+| **tireHeat** | оценка прогрева | Лёгкая модуляция grip-текстуры |
+| **vehicle** | display name | Класс feel (sport / offroad / default) |
+
+### Потоки данных
 
 ```text
-GTA Enhanced  →  GTAMOZA.dll (UDP 29755)
+                    ┌─ UDP 29755 ── telemetry (plugin → app)
+GTA Enhanced        │
+  GTAMOZA.dll  ─────┼─ UDP 29757 ── controls  (app → plugin)
+                    │                 steer / pedals / indL / indR
+                    └─ file fallback  %TEMP%\gtamoza_controls.json
+
+GTA Moza Drive ── UDP 29756 ── FFB cmd ──► gtamoza-ffb.exe
+                 UDP 29758 ── axis+paddles ◄── (Exclusive DI)
+```
+
+| Порт | Направление | Содержимое |
+|---|---|---|
+| **29755** | plugin → app | Телеметрия v2 |
+| **29756** | app → host | `magnitude`, `center`, `damp`, `friction`, `inertia` |
+| **29757** | app → plugin | Руль, педали, поворотники |
+| **29758** | host → app | Steer + оси/кнопки лепестков (когда HID занят Exclusive) |
+
+### Управление и поворотники
+
+- Руль / педали идут в плагин непрерывно; угол руля согласуется с Pit House.
+- **Лепестки → поворотники:** при Exclusive DI ось/кнопки читает `gtamoza-ffb` и отдаёт в приложение.
+  - Режим **Button** (часто на MOZA): первое нажатие левого лепестка запоминается как «лево», правого — как «право».
+  - Режим **Combined / Independent axis**: отклонение оси сцепления.
+- В игре индикаторы включаются через `SET_VEHICLE_INDICATOR_LIGHTS` каждый кадр — мигание как у NPC.
+
+---
+
+## 🧲 Система физики FFB
+
+GTA не отдаёт aligning torque шин. Стек GTAMOZA имитирует ощущение в духе симов: **одна пружина возврата** + **механическая колонка** + **игровые эффекты без DC-тяги в поворот**.
+
+### Слои (снизу вверх)
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Игровые эффекты (Electron)                             │
+│  дорога · kerb · grass · bump · slip · ABS · collision  │
+│  · engine — AC-текстура / импульсы, без ±steer SAT      │
+├─────────────────────────────────────────────────────────┤
+│  Команда center / damp / friction / inertia             │
+│  (нагрузка от скорости, тормоза, slip — мягко)          │
+├─────────────────────────────────────────────────────────┤
+│  gtamoza-ffb — механическая колонка (DirectInput CF)    │
+│  spring(−norm) + damper + friction + inertia            │
+│  ForcePolarity для эффектов · CenterPolarity для пружины│
+└─────────────────────────────────────────────────────────┘
+```
+
+| Слой | Что делает | Ползунок в приложении |
+|---|---|---|
+| **SAT / center** | Возврат в центр на скорости (host spring) | Самовыравнивание |
+| **Damping** | Стабильность, вес под тормозом (плавно) | Демпфирование |
+| **Friction / Inertia** | «Тяжесть» обода, сопротивление рывкам | Трение / Инерция |
+| **Road / Kerb / Grass** | Зерно поверхности (на асфальте тихо) | Эффекты → Дорога / … |
+| **Suspension** | Ямы / heave (не тяга в поворот) | Подвеска |
+| **Wheel slip / ABS** | Потеря сцепления, пульс ABS | Пробуксовка / ABS |
+| **Collision** | Удары; мягкие ложные на прямой под тормозом глушатся | Столкновение |
+| **Engine** | Лёгкий buzz под нагрузкой | Двигатель |
+| **Overall / Smoothing** | Мастер-гейн и сглаживание пиков | Общая сила / Сглаживание |
+
+### Принципы настройки (заводской профиль)
+
+- **Pit House Wheel Spring = 0%** — иначе две пружины дерутся.
+- Возврат в центр — **только** Self-aligning torque (host), не игровой ±steer.
+- Асфальт спокойный; бордюр и удары читаются поверх.
+- Торможение утяжеляет колонку **плавно** (damp/slew), без бокового рывка.
+- Заводские дефолты в приложении — **референс**; под себя крутите слайдеры в UI, не обязательно править исходники.
+
+### Полярность
+
+При старте host калибрует **ForcePolarity** (эффекты) и **CenterPolarity** (пружина `−norm`), чтобы возврат шёл к центру, а текстуры не усиливали поворот «в замок».
+
+---
+
+## 📚 Как это устроено (кратко)
+
+```text
+GTA Enhanced  →  GTAMOZA.dll (UDP 29755 telemetry)
                       ↓
-              GTA Moza Drive (синтез эффектов)
+              GTA Moza Drive (tracking → physics synth)
                       ↓ UDP 29756
-              gtamoza-ffb.exe  →  MOZA base (DirectInput)
+              gtamoza-ffb.exe  →  MOZA base (DirectInput Exclusive)
+                      ↓ UDP 29758
+              axis / paddles  →  app (steer + indicators)
 ```
 
 - Плагин и `gtamoza-ffb` **внутри** установщика (`extraResources`).
 - При Enable приложение копирует `GTAMOZA.dll` в `…/Grand Theft Auto V Enhanced/scripts/`.
-- Отдельный «мод-архив» в релизе не нужен.
 
 ---
 
@@ -135,10 +237,10 @@ npm run dist:win
 | Путь | Назначение |
 |---|---|
 | `src/` | React UI |
-| `electron/` | Main / preload, телеметрия, установка хуков, FFB |
-| `gta-mod/` | Плагин SHVDN (`GTAMOZA.dll`) |
-| `tools/ffb-host/` | DirectInput FFB host |
-| `shared/` | Типы и дефолты профилей |
+| `electron/` | Main / preload, телеметрия, синтез FFB, хуки |
+| `gta-mod/` | Плагин SHVDN (`GTAMOZA.dll`) — отслеживание + ввод |
+| `tools/ffb-host/` | DirectInput FFB host + axis/paddle feed |
+| `shared/` | Типы и заводские дефолты профилей |
 | `build/` | Иконки |
 | `.github/workflows/` | Автосборка и релизы |
 
@@ -168,13 +270,17 @@ npm run dist:win
 
 ## ✨ What it is
 
-**GTA Moza Drive (GTAMOZA)** is a desktop app for **MOZA wheel bases** (R3, R5, R9, R12, R16, and others): force-feedback synthesis from **GTA V Enhanced Story Mode** telemetry, feel profiles, and one-click plugin install. Tuned for the MOZA ecosystem; if no MOZA base is found, the host may fall back to another DirectInput FFB device.
+**GTA Moza Drive (GTAMOZA)** is a desktop app for **MOZA wheel bases** (R3, R5, R9, R12, R16, and others): force-feedback synthesis from **GTA V Enhanced Story Mode** telemetry, feel profiles, and one-click plugin install.
+
+GTA has no real tire model (unlike iRacing / ACC). GTAMOZA builds its **own stack**: vehicle tracking in the plugin → effect synthesis in Electron → mechanical column in the DirectInput host.
 
 | | Feature |
 |---|---|
-| 🎮 | FFB from Story Mode telemetry (road, kerb, slip, impacts, SAT) |
-| 🛞 | DirectInput host `gtamoza-ffb` → **MOZA** base (Exclusive; not R5-only) |
+| 📡 | Telemetry v2: speed, yaw, slip, surface, bump, collision, load |
+| 🧲 | Wheel physics: SAT spring + damp / friction / inertia + game effects |
+| 🛞 | DirectInput host `gtamoza-ffb` → **MOZA** base (Exclusive) |
 | 🧩 | `GTAMOZA.dll` plugin (ScriptHookVDotNet) installed from the app |
+| 🚦 | Turn signals on paddles (button auto-learn / clutch axis) |
 | 🛡️ | “Prepare for Online” — park hooks before Online |
 | 🎛️ | Profiles: Default / Sports / Supercars / Drift / Offroad |
 | 🎚️ | Effects: road, kerb, grass, suspension, slip, ABS, collision, engine |
@@ -182,7 +288,7 @@ npm run dist:win
 | 🎨 | Dark / light / system theme, **en** + **ru** |
 | ⬆️ | Auto-updates from GitHub Releases (Setup) |
 
-Repo version: **`1.0.0`** (always check [Releases](https://github.com/GoblinThug/GTAMOZA/releases) for the latest).
+Repo version: **`2.0.0`** (always check [Releases](https://github.com/GoblinThug/GTAMOZA/releases) for the latest).
 
 > ⚠️ **Story Mode only.** Do **not** use Script Hook / ASI loaders in Online. Use **Prepare for Online** and restore BattlEye / remove `-nobattleye` before going Online.
 
@@ -222,23 +328,121 @@ In-game plugin hot-reload: **F11** (subtitle `GTAMOZA Hot-reload OK`).
 
 Before Online: **Prepare for Online** in the app.
 
-📖 **Full user guide** (Pit House, pedals, profiles, Online, troubleshooting): **[docs/USAGE.md](docs/USAGE.md)**.
+📖 **Full user guide**: **[docs/USAGE.md](docs/USAGE.md)**.
 
 ---
 
-## 📚 How it works
+## 📡 Tracking systems
+
+`GTAMOZA.dll` samples the player vehicle every tick and sends **telemetry v2** to `127.0.0.1:29755` (JSON).
+
+### What is tracked
+
+| Channel | Source | Used for |
+|---|---|---|
+| **Speed / RPM / gear** | Vehicle | Motion gates, effect scaling |
+| **Steer / throttle / brake / clutch** | UDP 29757 from the app | Wheel & pedal injection |
+| **accelFwd / accelLat** | Body-frame Δvelocity | Load, impacts, collision direction |
+| **yawRate / pitchRate / rollRate** | LocalRotationVelocity | Turn activity, lean |
+| **wheelSlip** | Wheel vs body speed + yaw | Slip texture |
+| **surface / surfL / surfR / matId** | Wheel materials | Asphalt / kerb / grass / dirt grain |
+| **bump** | Vertical Δ position | Potholes / heave |
+| **collision / colHard** | Health + accel jolts | Impacts and hardness |
+| **airborne / wheelsDown** | Contact count | Mute textures in air |
+| **tireHeat** | Heat estimate | Light grip-texture modulation |
+| **vehicle** | Display name | Sport / offroad / default feel |
+
+### Data paths
 
 ```text
-GTA Enhanced  →  GTAMOZA.dll (UDP 29755)
+                    ┌─ UDP 29755 ── telemetry (plugin → app)
+GTA Enhanced        │
+  GTAMOZA.dll  ─────┼─ UDP 29757 ── controls  (app → plugin)
+                    │                 steer / pedals / indL / indR
+                    └─ file fallback  %TEMP%\gtamoza_controls.json
+
+GTA Moza Drive ── UDP 29756 ── FFB cmd ──► gtamoza-ffb.exe
+                 UDP 29758 ── axis+paddles ◄── (Exclusive DI)
+```
+
+| Port | Direction | Payload |
+|---|---|---|
+| **29755** | plugin → app | Telemetry v2 |
+| **29756** | app → host | `magnitude`, `center`, `damp`, `friction`, `inertia` |
+| **29757** | app → plugin | Steering, pedals, indicators |
+| **29758** | host → app | Steer + paddle axes/buttons (when HID is Exclusive-blocked) |
+
+### Controls & indicators
+
+- Steering / pedals stream continuously; wheel angle follows Pit House.
+- **Paddles → turn signals:** under Exclusive DI, `gtamoza-ffb` reads axes/buttons and feeds the app.
+  - **Button** mode (common on MOZA): first left-paddle press learns “left”, first right learns “right”.
+  - **Combined / Independent axis**: clutch-paddle travel.
+- In-game blinkers use `SET_VEHICLE_INDICATOR_LIGHTS` every frame — NPC-style flash.
+
+---
+
+## 🧲 FFB physics system
+
+GTA does not expose tire aligning torque. GTAMOZA approximates a sim-like feel: **one return spring** + **mechanical column** + **game effects without DC pull into the turn**.
+
+### Layers (bottom → top)
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Game effects (Electron)                                │
+│  road · kerb · grass · bump · slip · ABS · collision    │
+│  · engine — AC texture / impulses, no ±steer SAT        │
+├─────────────────────────────────────────────────────────┤
+│  center / damp / friction / inertia command             │
+│  (load from speed, brake, slip — smoothed)              │
+├─────────────────────────────────────────────────────────┤
+│  gtamoza-ffb — mechanical column (DirectInput CF)       │
+│  spring(−norm) + damper + friction + inertia            │
+│  ForcePolarity for effects · CenterPolarity for spring  │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Layer | Role | App slider |
+|---|---|---|
+| **SAT / center** | Speed-aware return-to-center (host spring) | Self-aligning torque |
+| **Damping** | Stability; gentle brake weight | Damping |
+| **Friction / Inertia** | Rim weight, anti-flick | Friction / Inertia |
+| **Road / Kerb / Grass** | Surface grain (quiet on asphalt) | Effects → Road / … |
+| **Suspension** | Bumps / heave (not steer pull) | Suspension |
+| **Wheel slip / ABS** | Grip loss, ABS pulse | Wheel slip / ABS |
+| **Collision** | Impacts; soft false hits under brake muted | Collision |
+| **Engine** | Light buzz under load | Engine |
+| **Overall / Smoothing** | Master gain & spike softener | Overall / Smoothing |
+
+### Tuning principles (factory profile)
+
+- **Pit House Wheel Spring = 0%** — otherwise two springs fight.
+- Return-to-center is **only** Self-aligning torque (host), never game-layer ±steer.
+- Calm asphalt; kerb and impacts read above it.
+- Braking adds column weight **smoothly** (damp/slew), without a side yank.
+- Factory defaults in the app are the **reference**; tweak sliders in the UI as you like.
+
+### Polarity
+
+At startup the host calibrates **ForcePolarity** (effects) and **CenterPolarity** (spring `−norm`) so recentering works and textures do not yank into the lock.
+
+---
+
+## 📚 How it works (short)
+
+```text
+GTA Enhanced  →  GTAMOZA.dll (UDP 29755 telemetry)
                       ↓
-              GTA Moza Drive (effect synth)
+              GTA Moza Drive (tracking → physics synth)
                       ↓ UDP 29756
-              gtamoza-ffb.exe  →  MOZA base (DirectInput)
+              gtamoza-ffb.exe  →  MOZA base (DirectInput Exclusive)
+                      ↓ UDP 29758
+              axis / paddles  →  app (steer + indicators)
 ```
 
 - Plugin and `gtamoza-ffb` ship inside the installer (`extraResources`).
 - On Enable, the app copies `GTAMOZA.dll` into `…/Grand Theft Auto V Enhanced/scripts/`.
-- No separate “mod zip” is required on the Release.
 
 ---
 
@@ -250,8 +454,8 @@ Requires **Node.js 22+**, npm, and **.NET SDK 8+**.
 git clone https://github.com/GoblinThug/GTAMOZA.git
 cd GTAMOZA
 npm install
-npm run fetch:shvdn    # ScriptHookVDotNet3.dll → libs/ (if no game install)
-npm run build:native   # GTAMOZA.dll + gtamoza-ffb.exe
+npm run fetch:shvdn
+npm run build:native
 npm run dev
 ```
 
@@ -259,7 +463,6 @@ Installer:
 
 ```bash
 npm run dist:win
-# → release/GTAMOZA-Setup-*.exe , GTAMOZA-Portable-*.exe
 ```
 
 ### Layout
@@ -267,10 +470,10 @@ npm run dist:win
 | Path | Purpose |
 |---|---|
 | `src/` | React UI |
-| `electron/` | Main / preload, telemetry, hook installer, FFB |
-| `gta-mod/` | SHVDN plugin (`GTAMOZA.dll`) |
-| `tools/ffb-host/` | DirectInput FFB host |
-| `shared/` | Shared types & profile defaults |
+| `electron/` | Main / preload, telemetry, FFB synth, hooks |
+| `gta-mod/` | SHVDN plugin — tracking + input |
+| `tools/ffb-host/` | DirectInput FFB host + axis/paddle feed |
+| `shared/` | Types & factory profile defaults |
 | `build/` | Icons |
 | `.github/workflows/` | CI / releases |
 

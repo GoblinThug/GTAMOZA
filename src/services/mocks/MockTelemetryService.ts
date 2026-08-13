@@ -45,6 +45,10 @@ export class MockTelemetryService implements TelemetryService {
     return this.sample
   }
 
+  getSnapshot() {
+    return this.sample
+  }
+
   subscribe(listener: (sample: TelemetrySample) => void) {
     this.listeners.add(listener)
     listener(this.sample)

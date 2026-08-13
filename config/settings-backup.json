@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "label": "Ideal settings lock — 2026-08-14",
+  "description": "Full factory restore snapshot of profiles + app settings (pedals, cheats, UI). Used by Restore factory backup.",
+  "createdAt": "2026-08-14T01:49:00.000Z",
+  "tuningRevision": 29,
+  "profiles": {
+    "selectedProfileId": "default",
+    "tuningRevision": 29,
+    "profiles": [
+      {
+        "id": "default",
+        "name": "Default",
+        "settings": {
+          "steering": {
+            "wheelAngle": 900,
+            "sensitivity": 95,
+            "linearity": 28,
+            "deadzone": 2,
+            "saturation": 100,
+            "softLock": true,
+            "centerOffset": 0
+          },
+          "ffb": {
+            "overallStrength": 100,
+            "maximumTorque": 5.5,
+            "selfAligningTorque": 52,
+            "damping": 64,
+            "friction": 22,
+            "inertia": 24,
+            "smoothing": 32,
+            "slewRate": 36,
+            "enabled": true
+          },
+          "effects": {
+            "road": { "enabled": true, "strength": 18 },
+            "kerb": { "enabled": true, "strength": 58 },
+            "grass": { "enabled": true, "strength": 36 },
+            "suspension": { "enabled": true, "strength": 58 },
+            "wheelSlip": { "enabled": true, "strength": 28 },
+            "abs": { "enabled": true, "strength": 20 },
+            "collision": { "enabled": true, "strength": 62 },
+            "engine": { "enabled": true, "strength": 6 }
+          }
+        }
+      },
+      {
+        "id": "sports",
+        "name": "Sports",
+        "settings": {
+          "steering": {
+            "wheelAngle": 900,
+            "sensitivity": 72,
+            "linearity": 24,
+            "deadzone": 2,
+            "saturation": 100,
+            "softLock": true,
+            "centerOffset": 0
+          },
+          "ffb": {
+            "overallStrength": 100,
+            "maximumTorque": 5.5,
+            "selfAligningTorque": 44,
+            "damping": 48,
+            "friction": 14,
+            "inertia": 14,
+            "smoothing": 24,
+            "slewRate": 36,
+            "enabled": true
+          },
+          "effects": {
+            "road": { "enabled": true, "strength": 24 },
+            "kerb": { "enabled": true, "strength": 64 },
+            "grass": { "enabled": true, "strength": 36 },
+            "suspension": { "enabled": true, "strength": 64 },
+            "wheelSlip": { "enabled": true, "strength": 34 },
+            "abs": { "enabled": true, "strength": 20 },
+            "collision": { "enabled": true, "strength": 66 },
+            "engine": { "enabled": true, "strength": 10 }
+          }
+        }
+      },
+      {
+        "id": "supercars",
+        "name": "Supercars",
+        "settings": {
+          "steering": {
+            "wheelAngle": 900,
+            "sensitivity": 68,
+            "linearity": 34,
+            "deadzone": 2,
+            "saturation": 100,
+            "softLock": true,
+            "centerOffset": 0
+          },
+          "ffb": {
+            "overallStrength": 100,
+            "maximumTorque": 5.5,
+            "selfAligningTorque": 48,
+            "damping": 58,
+            "friction": 15,
+            "inertia": 18,
+            "smoothing": 22,
+            "slewRate": 36,
+            "enabled": true
+          },
+          "effects": {
+            "road": { "enabled": true, "strength": 20 },
+            "kerb": { "enabled": true, "strength": 68 },
+            "grass": { "enabled": true, "strength": 36 },
+            "suspension": { "enabled": true, "strength": 70 },
+            "wheelSlip": { "enabled": true, "strength": 30 },
+            "abs": { "enabled": true, "strength": 24 },
+            "collision": { "enabled": true, "strength": 70 },
+            "engine": { "enabled": true, "strength": 8 }
+          }
+        }
+      },
+      {
+        "id": "drift",
+        "name": "Drift",
+        "settings": {
+          "steering": {
+            "wheelAngle": 1080,
+            "sensitivity": 100,
+            "linearity": 22,
+            "deadzone": 0,
+            "saturation": 100,
+            "softLock": true,
+            "centerOffset": 0
+          },
+          "ffb": {
+            "overallStrength": 92,
+            "maximumTorque": 5.5,
+            "selfAligningTorque": 38,
+            "damping": 16,
+            "friction": 8,
+            "inertia": 8,
+            "smoothing": 18,
+            "slewRate": 36,
+            "enabled": true
+          },
+          "effects": {
+            "road": { "enabled": true, "strength": 36 },
+            "kerb": { "enabled": true, "strength": 70 },
+            "grass": { "enabled": true, "strength": 36 },
+            "suspension": { "enabled": true, "strength": 58 },
+            "wheelSlip": { "enabled": true, "strength": 88 },
+            "abs": { "enabled": true, "strength": 28 },
+            "collision": { "enabled": true, "strength": 58 },
+            "engine": { "enabled": true, "strength": 42 }
+          }
+        }
+      },
+      {
+        "id": "offroad",
+        "name": "Offroad",
+        "settings": {
+          "steering": {
+            "wheelAngle": 900,
+            "sensitivity": 52,
+            "linearity": 32,
+            "deadzone": 3,
+            "saturation": 100,
+            "softLock": true,
+            "centerOffset": 0
+          },
+          "ffb": {
+            "overallStrength": 94,
+            "maximumTorque": 5.5,
+            "selfAligningTorque": 54,
+            "damping": 42,
+            "friction": 20,
+            "inertia": 18,
+            "smoothing": 24,
+            "slewRate": 36,
+            "enabled": true
+          },
+          "effects": {
+            "road": { "enabled": true, "strength": 48 },
+            "kerb": { "enabled": true, "strength": 72 },
+            "grass": { "enabled": true, "strength": 78 },
+            "suspension": { "enabled": true, "strength": 88 },
+            "wheelSlip": { "enabled": true, "strength": 62 },
+            "abs": { "enabled": true, "strength": 20 },
+            "collision": { "enabled": true, "strength": 86 },
+            "engine": { "enabled": true, "strength": 28 }
+          }
+        }
+      }
+    ]
+  },
+  "appSettings": {
+    "theme": "dark",
+    "locale": "ru",
+    "startWithWindows": false,
+    "minimizeToTray": true,
+    "autoUpdates": true,
+    "updateChannel": "stable",
+    "selectedProfileId": "default",
+    "pedalAxisMap": {
+      "throttle": 2,
+      "brake": 5,
+      "clutch": 7
+    },
+    "pedalFloors": {
+      "throttle": {
+        "axis": 2,
+        "rest": 32768,
+        "extreme": 32767,
+        "dir": 1,
+        "maxTravel": 64000
+      },
+      "brake": {
+        "axis": 5,
+        "rest": 32768,
+        "extreme": 32767,
+        "dir": 1,
+        "maxTravel": 64000
+      },
+      "clutch": {
+        "axis": 7,
+        "rest": 32768,
+        "extreme": 32767,
+        "dir": 1,
+        "maxTravel": 64000
+      }
+    },
+    "cheats": {
+      "enabled": true,
+      "godMode": { "enabled": true, "hotkey": "Home" },
+      "noPolice": { "enabled": true, "hotkey": "End" },
+      "spawnCar": { "enabled": true, "hotkey": "PageUp" }
+    },
+    "onboardingCompleted": true
+  }
+}

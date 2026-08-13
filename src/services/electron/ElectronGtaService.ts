@@ -30,7 +30,17 @@ export class ElectronGtaService implements GtaService {
   constructor() {
     if (window.gtamoza?.onGtaLink) {
       this.unsub = window.gtamoza.onGtaLink((link: GtaLinkStatus) => {
-        this.last = fromLink(link)
+        const next = fromLink(link)
+        if (
+          next.connected === this.last.connected &&
+          next.mode === this.last.mode &&
+          next.vehicle === this.last.vehicle &&
+          next.gameRunning === this.last.gameRunning &&
+          next.pluginMissing === this.last.pluginMissing
+        ) {
+          return
+        }
+        this.last = next
         this.emit()
       })
       void window.gtamoza.gtaGetLinkStatus?.().then((link) => {

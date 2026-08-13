@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell, nativeTheme } from 'electron'
 import path from 'node:path'
 import { loadSettings, saveSettings } from './settings-store'
+import { restoreAllFromBackup } from './settings-backup'
 import {
   createProfile,
   deleteProfile,
@@ -32,7 +33,10 @@ import {
   setGtaFfbContext,
   startFfbHost,
 } from './gta/telemetry-bridge'
-import { ensureFfbEffectLogSession } from './gta/ffb-effect-log'
+import {
+  ensureFfbEffectLogSession,
+  setFfbEffectLogEnabled,
+} from './gta/ffb-effect-log'
 import fs from 'node:fs'
 import type { AppSettings, ProfileSettings } from './types'
 import { APP_DISPLAY_NAME } from '../shared/config'
@@ -171,6 +175,14 @@ function registerIpc() {
     syncMozaFromSelectedProfile()
     return store
   })
+  ipcMain.handle('settings:restoreBackup', () => {
+    const result = restoreAllFromBackup()
+    saveSettings({ selectedProfileId: result.profiles.selectedProfileId })
+    syncMozaFromSelectedProfile()
+    if (result.settings.pedalAxisMap) setMozaPedalAxisMap(result.settings.pedalAxisMap)
+    if (result.settings.pedalFloors) setMozaPedalFloors(result.settings.pedalFloors)
+    return result
+  })
 
   ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
 
@@ -266,6 +278,8 @@ function registerIpc() {
     return startFfbHost()
   })
   ipcMain.handle('gta:openFfbLogs', async () => {
+    // Opt-in: opening the folder enables session logging for this run
+    setFfbEffectLogEnabled(true)
     const file = getFfbEffectLogFile() ?? ensureFfbEffectLogSession()
     const dir = file ? path.dirname(file) : path.join(app.getPath('userData'), 'logs')
     fs.mkdirSync(dir, { recursive: true })

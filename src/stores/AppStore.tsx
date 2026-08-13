@@ -17,10 +17,10 @@ import type {
   PageId,
   ProfileSettings,
   ProfilesStore,
-  TelemetrySample,
   UpdateStatus,
 } from '../types'
 import { DEFAULT_APP_SETTINGS, createDefaultProfileSettings } from '../../shared/types'
+import { syncI18nLocale } from '../i18n/useI18n'
 
 type AppStoreValue = {
   ready: boolean
@@ -32,7 +32,6 @@ type AppStoreValue = {
   activeSettings: ProfileSettings
   device: DeviceStatus
   gta: GtaStatus
-  telemetry: TelemetrySample
   version: string
   updateStatus: UpdateStatus
   dirty: boolean
@@ -50,6 +49,7 @@ type AppStoreValue = {
   deleteProfile: (id: string) => Promise<void>
   renameProfile: (id: string, name: string) => Promise<void>
   resetActiveProfile: () => Promise<void>
+  restoreFactoryBackup: () => Promise<boolean>
   checkForUpdates: () => Promise<void>
   downloadUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
@@ -88,20 +88,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     mode: 'unknown',
     vehicle: '—',
   })
-  const [telemetry, setTelemetry] = useState<TelemetrySample>({
-    timestamp: Date.now(),
-    speed: 0,
-    steeringAngle: 0,
-    torque: 0,
-    throttle: 0,
-    brake: 0,
-    clutch: 0,
-    throttleRaw: 0,
-    brakeRaw: 0,
-    clutchRaw: 0,
-    lateralG: 0,
-    yawRate: 0,
-  })
   const [version, setVersion] = useState('0.1.0')
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
   const [baseSync, setBaseSync] = useState<MozaBaseSync | null>(null)
@@ -120,6 +106,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', resolvedTheme)
   }, [resolvedTheme])
+
+  useEffect(() => {
+    syncI18nLocale(settings.locale === 'ru' ? 'ru' : 'en')
+  }, [settings.locale])
 
   useEffect(() => {
     let cancelled = false
@@ -153,7 +143,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
     const unsubDevice = services.device.subscribe(setDevice)
     const unsubGta = services.gta.subscribe(setGta)
-    const unsubTelemetry = services.telemetry.subscribe(setTelemetry)
     const unsubUpdate = services.updates.onStatus(setUpdateStatus)
     const unsubSystem = window.gtamoza?.onSystemThemeChanged((payload) => {
       setSystemDark(payload.shouldUseDarkColors)
@@ -171,52 +160,60 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       }))
       setActiveSettings((prev) => {
         const { selfAligningTorque: _ignoreSat, ...ffbFromBase } = sync.ffb
+        const nextSteering = { ...prev.steering, ...sync.steering }
+        const nextFfb = {
+          ...prev.ffb,
+          ...ffbFromBase,
+          selfAligningTorque: prev.ffb.selfAligningTorque ?? 68,
+        }
+        // Skip no-op updates — each activeSettings change pushes profile IPC
+        if (
+          nextSteering.wheelAngle === prev.steering.wheelAngle &&
+          nextFfb.overallStrength === prev.ffb.overallStrength &&
+          nextFfb.damping === prev.ffb.damping &&
+          nextFfb.friction === prev.ffb.friction &&
+          nextFfb.inertia === prev.ffb.inertia
+        ) {
+          return prev
+        }
         return {
           ...prev,
-          steering: { ...prev.steering, ...sync.steering },
-          // Pit House spring must never wipe GTAMOZA auto-centering.
-          ffb: {
-            ...prev.ffb,
-            ...ffbFromBase,
-            selfAligningTorque: prev.ffb.selfAligningTorque ?? 68,
-          },
+          steering: nextSteering,
+          ffb: nextFfb,
         }
       })
     }
 
     const unsubBase = window.gtamoza?.onMozaBaseSync(applyBaseSync)
     const unsubGtaTel = window.gtamoza?.onGtaTelemetry((sample) => {
-      setTelemetry((prev) => ({
-        ...prev,
-        timestamp: sample.t || Date.now(),
-        speed: sample.speed * 3.6,
-        lateralG: sample.lateral / 9.81,
-        yawRate: sample.yawRate,
-      }))
-      if (sample.inVehicle && sample.vehicle) {
-        setGta((prev) => ({
+      if (!sample.inVehicle || !sample.vehicle) return
+      setGta((prev) => {
+        if (
+          prev.connected &&
+          prev.vehicle === sample.vehicle &&
+          prev.pluginMissing === false &&
+          prev.gameRunning === true
+        ) {
+          return prev
+        }
+        return {
           ...prev,
           connected: true,
           mode: 'story',
           vehicle: sample.vehicle,
           pluginMissing: false,
           gameRunning: true,
-        }))
-      }
+        }
+      })
     })
     void window.gtamoza?.mozaGetBaseSync().then((sync) => {
       if (sync) applyBaseSync(sync)
     })
-    const pullStatus = () => {
-      void window.gtamoza?.mozaGetSerialStatus().then((s) => {
-        if (!s) return
-        setSerialStatus(s)
-        // Keep last baseSync values in settings; only drop the "live" badge.
-        if (!s.baseLive && !s.portOpen) setBaseSync(null)
-      })
-    }
-    pullStatus()
-    const serialPoll = window.setInterval(pullStatus, 1500)
+    void window.gtamoza?.mozaGetSerialStatus().then((s) => {
+      if (!s) return
+      setSerialStatus(s)
+      if (!s.baseLive && !s.portOpen) setBaseSync(null)
+    })
 
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const onMq = () => {
@@ -228,12 +225,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       cancelled = true
       unsubDevice()
       unsubGta()
-      unsubTelemetry()
       unsubUpdate()
       unsubSystem?.()
       unsubBase?.()
       unsubGtaTel?.()
-      window.clearInterval(serialPoll)
       mq.removeEventListener('change', onMq)
     }
   }, [])
@@ -315,6 +310,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setDirty(false)
   }, [profiles.selectedProfileId])
 
+  const restoreFactoryBackup = useCallback(async () => {
+    const result = await services.settings.restoreBackup()
+    setProfiles(result.profiles)
+    setSettings(result.settings)
+    const selected = result.profiles.profiles.find(
+      (p) => p.id === result.profiles.selectedProfileId,
+    )
+    if (selected) setActiveSettings(structuredClone(selected.settings))
+    setDirty(false)
+    return result.ok
+  }, [])
+
   const checkForUpdates = useCallback(async () => {
     setUpdateStatus({ state: 'checking' })
     const result = await services.updates.check()
@@ -359,11 +366,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!window.gtamoza || !ready) return
-    void window.gtamoza.mozaSetProfileSettings({
-      steering: activeSettings.steering,
-      ffb: activeSettings.ffb,
-      effects: activeSettings.effects,
-    })
+    // Debounce — Pit House CoAP / slider drags must not flood main IPC
+    const timer = window.setTimeout(() => {
+      void window.gtamoza?.mozaSetProfileSettings({
+        steering: activeSettings.steering,
+        ffb: activeSettings.ffb,
+        effects: activeSettings.effects,
+      })
+    }, 120)
+    return () => window.clearTimeout(timer)
   }, [activeSettings, ready])
 
   const value = useMemo<AppStoreValue>(
@@ -377,7 +388,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       activeSettings,
       device,
       gta,
-      telemetry,
       version,
       updateStatus,
       dirty,
@@ -392,6 +402,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       deleteProfile,
       renameProfile,
       resetActiveProfile,
+      restoreFactoryBackup,
       checkForUpdates,
       downloadUpdate,
       installUpdate,
@@ -405,7 +416,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       activeSettings,
       device,
       gta,
-      telemetry,
       version,
       updateStatus,
       dirty,
@@ -420,6 +430,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       deleteProfile,
       renameProfile,
       resetActiveProfile,
+      restoreFactoryBackup,
       checkForUpdates,
       downloadUpdate,
       installUpdate,

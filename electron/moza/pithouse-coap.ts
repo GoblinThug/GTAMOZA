@@ -13,6 +13,12 @@ const execFileAsync = promisify(execFile)
 const COAP_TIMEOUT_MS = 900
 let cachedPort: number | null = null
 let lastCoapError: string | null = null
+/** Avoid tasklist+netstat every UI poll — that hitch is visible while scrolling. */
+let cachedUdpPorts: number[] = []
+let cachedUdpPortsAt = 0
+let lastDiscoverMissAt = 0
+const UDP_PORTS_CACHE_MS = 30_000
+const DISCOVER_MISS_BACKOFF_MS = 15_000
 
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
@@ -141,6 +147,8 @@ function readIntAfterKey(buf: Buffer, key: string): number | null {
 }
 
 async function listPitHouseUdpPorts(): Promise<number[]> {
+  const now = Date.now()
+  if (now - cachedUdpPortsAt < UDP_PORTS_CACHE_MS) return cachedUdpPorts
   try {
     const { stdout: taskOut } = await execFileAsync(
       'tasklist',
@@ -152,7 +160,11 @@ async function listPitHouseUdpPorts(): Promise<number[]> {
       const m = line.match(/"MOZA Pit House\.exe","(\d+)"/i)
       if (m) pids.add(Number(m[1]))
     }
-    if (pids.size === 0) return []
+    if (pids.size === 0) {
+      cachedUdpPorts = []
+      cachedUdpPortsAt = now
+      return []
+    }
 
     const { stdout: netOut } = await execFileAsync(
       'netstat',
@@ -172,17 +184,35 @@ async function listPitHouseUdpPorts(): Promise<number[]> {
       const port = Number(portStr)
       if (Number.isFinite(port) && port > 0) ports.add(port)
     }
-    return [...ports]
+    cachedUdpPorts = [...ports]
+    cachedUdpPortsAt = now
+    return cachedUdpPorts
   } catch {
+    cachedUdpPorts = []
+    cachedUdpPortsAt = now
     return []
   }
 }
 
-async function discoverCoapPort(): Promise<number | null> {
+/**
+ * Background path: only reuse a known CoAP port.
+ * tasklist/netstat spawn conhost.exe and hitch the UI — never call them on a timer.
+ */
+async function discoverCoapPort(allowProcessScan = false): Promise<number | null> {
   if (cachedPort != null) {
     const probe = await coapGet(cachedPort, 'MOZARacing/ProductDevice')
     if (probe && isCoapSuccess(coapCode(probe))) return cachedPort
     cachedPort = null
+  }
+
+  if (!allowProcessScan) {
+    lastCoapError = 'Pit House CoAP not cached — use Pull from Pit House'
+    return null
+  }
+
+  const now = Date.now()
+  if (now - lastDiscoverMissAt < DISCOVER_MISS_BACKOFF_MS) {
+    return null
   }
 
   const ports = await listPitHouseUdpPorts()
@@ -191,8 +221,10 @@ async function discoverCoapPort(): Promise<number | null> {
     if (!probe || !isCoapSuccess(coapCode(probe))) continue
     cachedPort = port
     lastCoapError = null
+    lastDiscoverMissAt = 0
     return port
   }
+  lastDiscoverMissAt = now
   lastCoapError = ports.length
     ? 'Pit House CoAP not responding'
     : 'Pit House not running'
@@ -223,11 +255,13 @@ export function getPitHouseCoapStatus(): {
 /**
  * Pull wheel angle (+ a few base fields) from Pit House CoAP.
  * Safe while Pit House owns COM.
+ * @param allowProcessScan - tasklist/netstat (conhost hitch); only for manual Pull.
  */
 export async function syncBaseFromPitHouseCoap(
   maxTorqueNm = 5.5,
+  allowProcessScan = false,
 ): Promise<MozaBaseSync | null> {
-  const port = await discoverCoapPort()
+  const port = await discoverCoapPort(allowProcessScan)
   if (port == null) return null
 
   const deviceIds = await listMotorDeviceIds(port)

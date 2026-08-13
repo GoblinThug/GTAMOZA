@@ -210,35 +210,36 @@ export const DEFAULT_STEERING: SteeringSettings = {
 }
 
 /**
- * Factory FFB baseline (same as current Default profile).
- * Pit House: Wheel Spring 0% when using in-app SAT.
+ * Factory FFB baseline — sim-style (iRacing / ACC):
+ * mild host spring, strong damp, tire model via Suspension effect.
+ * Pit House: Wheel Spring 0%, Hands-Off preferably Off.
  */
 export const DEFAULT_FFB: FfbSettings = {
   overallStrength: 100,
   maximumTorque: 5.5,
-  selfAligningTorque: 64,
-  damping: 34,
-  friction: 10,
-  inertia: 12,
-  smoothing: 20,
-  slewRate: 50,
+  selfAligningTorque: 52,
+  damping: 64,
+  friction: 22,
+  inertia: 24,
+  smoothing: 32,
+  slewRate: 36,
   enabled: true,
 }
 
-/** Factory effects baseline (same as current Default profile). */
+/** Factory effects — quieter detail; kerb/hit still readable over calm asphalt. */
 export const DEFAULT_EFFECTS: EffectsSettings = {
-  road: { enabled: true, strength: 68 },
-  kerb: { enabled: true, strength: 78 },
-  grass: { enabled: true, strength: 52 },
-  suspension: { enabled: true, strength: 70 },
-  wheelSlip: { enabled: true, strength: 55 },
-  abs: { enabled: true, strength: 40 },
-  collision: { enabled: true, strength: 78 },
-  engine: { enabled: true, strength: 30 },
+  road: { enabled: true, strength: 18 },
+  kerb: { enabled: true, strength: 58 },
+  grass: { enabled: true, strength: 36 },
+  suspension: { enabled: true, strength: 58 },
+  wheelSlip: { enabled: true, strength: 28 },
+  abs: { enabled: true, strength: 20 },
+  collision: { enabled: true, strength: 62 },
+  engine: { enabled: true, strength: 6 },
 }
 
 /** Stored in profiles.json — bump to re-apply DEFAULT_* / builtin FFB presets. */
-export const FFB_TUNE_REVISION = 20
+export const FFB_TUNE_REVISION = 29
 
 export function createDefaultProfileSettings(): ProfileSettings {
   return {

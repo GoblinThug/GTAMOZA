@@ -129,6 +129,13 @@ export type MozaFfbTestRequest = {
 
 let device: InstanceType<HidModule['HID']> | null = null
 let openPath: string | null = null
+/** After Exclusive/FFB-host busy open, don't re-enumerate/open every 1.5s (UI hitch). */
+let hidOpenBackoffUntil = 0
+let lastHidEnumAt = 0
+let lastBasePollAt = 0
+const HID_OPEN_BACKOFF_MS = 10_000
+const HID_ENUM_MIN_MS = 5_000
+const BASE_SETTINGS_POLL_MS = 10_000
 let lastStatus: MozaHardwareStatus = {
   connected: false,
   name: 'MOZA R5',
@@ -139,6 +146,143 @@ let lastThrottle = 0
 let lastBrake = 0
 let lastClutch = 0
 let lastRawAxes: number[] = []
+/** HID Y = combined clutch paddles (when Pit House mode = combined axis). */
+const PADDLE_AXIS = 1
+const PADDLE_DEADZONE = 2800
+const PADDLE_NORM_DEAD = 0.12
+let paddleRest = 32768
+let paddleRestLearn = 0
+let padLHeld = false
+let padRHeld = false
+/** Sticky turn-signal state sent to the GTA plugin. */
+let indicatorLeft = false
+let indicatorRight = false
+/**
+ * Shift / clutch paddles are often DI *buttons* (Pit House "Button" mode), not Y.
+ * Auto-learn: first distinct button press → left, second → right.
+ */
+let learnedPadBtnL = -1
+let learnedPadBtnR = -1
+let prevBtnMask = 0
+
+/**
+ * Rising-edge toggle:
+ * left = left indicator, right = right, both = hazards, same again = off.
+ */
+function applyPaddleEdges(padL: boolean, padR: boolean): boolean {
+  let changed = false
+  if (padL && padR) {
+    if (!(padLHeld && padRHeld)) {
+      const hazOn = !(indicatorLeft && indicatorRight)
+      indicatorLeft = hazOn
+      indicatorRight = hazOn
+      changed = true
+    }
+  } else {
+    if (padL && !padLHeld) {
+      if (indicatorLeft && !indicatorRight) indicatorLeft = false
+      else {
+        indicatorLeft = true
+        indicatorRight = false
+      }
+      changed = true
+    }
+    if (padR && !padRHeld) {
+      if (indicatorRight && !indicatorLeft) indicatorRight = false
+      else {
+        indicatorRight = true
+        indicatorLeft = false
+      }
+      changed = true
+    }
+  }
+  padLHeld = padL
+  padRHeld = padR
+  return changed
+}
+
+function toggleIndicatorLeft(): boolean {
+  if (indicatorLeft && !indicatorRight) indicatorLeft = false
+  else {
+    indicatorLeft = true
+    indicatorRight = false
+  }
+  return true
+}
+
+function toggleIndicatorRight(): boolean {
+  if (indicatorRight && !indicatorLeft) indicatorRight = false
+  else {
+    indicatorRight = true
+    indicatorLeft = false
+  }
+  return true
+}
+
+function updatePaddleIndicators(rawAxes: number[]): boolean {
+  const raw = rawAxes[PADDLE_AXIS]
+  if (raw == null || !Number.isFinite(raw)) return false
+
+  if (Math.abs(raw - paddleRest) < 2200) {
+    paddleRestLearn++
+    if (paddleRestLearn < 200) paddleRest = paddleRest * 0.97 + raw * 0.03
+    else paddleRest = paddleRest * 0.995 + raw * 0.005
+  }
+
+  const delta = raw - paddleRest
+  return applyPaddleEdges(delta < -PADDLE_DEADZONE, delta > PADDLE_DEADZONE)
+}
+
+/** Combined-axis clutch paddles: normalized −1…1 from FFB-host. */
+function updatePaddleFromNorm(y: number): boolean {
+  if (!Number.isFinite(y)) return false
+  const n = Math.max(-1, Math.min(1, y))
+  return applyPaddleEdges(n < -PADDLE_NORM_DEAD, n > PADDLE_NORM_DEAD)
+}
+
+/**
+ * Independent axes (left+, right+) or multi-axis probe from FFB-host.
+ * Values are 0…1 travel per side.
+ */
+function updatePaddleFromSides(left: number, right: number): boolean {
+  const l = Number.isFinite(left) ? left : 0
+  const r = Number.isFinite(right) ? right : 0
+  return applyPaddleEdges(l > PADDLE_NORM_DEAD, r > PADDLE_NORM_DEAD)
+}
+
+/**
+ * Button bitmask from FFB-host (bit i = DI button i).
+ * Learns the first two distinct paddle buttons as L/R turn signals.
+ */
+function updatePaddleFromBtnMask(mask: number): boolean {
+  if (!Number.isFinite(mask)) return false
+  const m = mask >>> 0
+  let changed = false
+  const rising: number[] = []
+  for (let i = 0; i < 32; i++) {
+    const bit = 1 << i
+    if (m & bit && !(prevBtnMask & bit)) rising.push(i)
+  }
+  prevBtnMask = m
+
+  for (const i of rising) {
+    if (learnedPadBtnL < 0) {
+      learnedPadBtnL = i
+      changed = toggleIndicatorLeft() || changed
+      console.log(`[moza] turn-signal left paddle learned as button ${i}`)
+      continue
+    }
+    if (learnedPadBtnR < 0 && i !== learnedPadBtnL) {
+      learnedPadBtnR = i
+      changed = toggleIndicatorRight() || changed
+      console.log(`[moza] turn-signal right paddle learned as button ${i}`)
+      continue
+    }
+    if (i === learnedPadBtnL) changed = toggleIndicatorLeft() || changed
+    else if (i === learnedPadBtnR) changed = toggleIndicatorRight() || changed
+  }
+  return changed
+}
 
 function pedalRaws() {
   const serial = getSerialPedals()
@@ -595,7 +739,31 @@ function closeDevice() {
 }
 
 function openBestDevice(): MozaHardwareStatus {
+  const now = Date.now()
+  // Already streaming HID — skip USB re-enumeration (sync and expensive).
+  if (device && openPath && now - lastReportAt < 2500) {
+    return lastStatus.connected
+      ? lastStatus
+      : { ...lastStatus, connected: true, path: openPath }
+  }
+  // FFB host Exclusive owns the rim — axis arrives via UDP; don't hammer HID open.
+  if (!device && now - lastFfbAxisAt < 800) {
+    return {
+      ...lastStatus,
+      connected: true,
+      firmware: lastStatus.firmware || 'FFB host axis',
+    }
+  }
+  if (!device && now < hidOpenBackoffUntil) {
+    return lastStatus
+  }
+  // Throttle full HID device list scans
+  if (device && openPath && now - lastHidEnumAt < HID_ENUM_MIN_MS) {
+    return lastStatus
+  }
+
   const api = getHid()
+  lastHidEnumAt = now
   const devices = api.devices().filter(
     (d) => d.vendorId === MOZA_VID && typeof d.productId === 'number',
   )
@@ -627,6 +795,7 @@ function openBestDevice(): MozaHardwareStatus {
     try {
       device = new api.HID(preferred.path)
       openPath = preferred.path
+      hidOpenBackoffUntil = 0
       device.on('data', (data) => {
         const parsed = parseReport(data as Buffer)
         if (!parsed) return
@@ -635,17 +804,20 @@ function openBestDevice(): MozaHardwareStatus {
         lastBrake = parsed.brake
         lastClutch = parsed.clutch
         lastRawAxes = parsed.rawAxes
+        updatePaddleIndicators(parsed.rawAxes)
         lastReportAt = Date.now()
         // Lowest-latency path: don't wait for the 16ms UI sample timer
         flushGtaControlsNow()
       })
       device.on('error', () => {
         closeDevice()
+        hidOpenBackoffUntil = Date.now() + HID_OPEN_BACKOFF_MS
         emitStatus({ connected: false, name: info.name, model: info.model })
       })
     } catch (error) {
       console.error('[moza] open failed', error)
       closeDevice()
+      hidOpenBackoffUntil = Date.now() + HID_OPEN_BACKOFF_MS
       return {
         connected: true,
         name: info.name,
@@ -741,6 +913,8 @@ function flushGtaControlsNow() {
     brake: useSerial ? serial!.brake : lastBrake,
     clutch: useSerial ? serial!.clutch : lastClutch,
     wheelAngle: resolveWheelAngleDeg(),
+    indL: indicatorLeft,
+    indR: indicatorRight,
   })
 }
 
@@ -1134,47 +1308,101 @@ export function initMozaBridge() {
       if (
         status.connected !== lastStatus.connected ||
         status.path !== lastStatus.path ||
-        status.name !== lastStatus.name
+        status.name !== lastStatus.name ||
+        status.firmware !== lastStatus.firmware
       ) {
         emitStatus(status)
       } else {
         lastStatus = status
       }
-      void tickBaseSettingsPoll()
+      const now = Date.now()
+      if (now - lastBasePollAt >= BASE_SETTINGS_POLL_MS) {
+        lastBasePollAt = now
+        void tickBaseSettingsPoll()
+      }
     } catch (error) {
       console.error('[moza] poll failed', error)
       closeDevice()
+      hidOpenBackoffUntil = Date.now() + HID_OPEN_BACKOFF_MS
       emitStatus({ connected: false, name: 'MOZA R5', model: 'R5' })
     }
   }
 
   tick()
-  pollTimer = setInterval(tick, 1500)
-  sampleTimer = setInterval(pushLiveSample, 16)
+  // Device presence only — heavy CoAP/netstat is on its own slower cadence
+  pollTimer = setInterval(tick, 4000)
+  // UI samples ~10 Hz (controls still flush on HID/FFB-axis events)
+  sampleTimer = setInterval(pushLiveSample, 100)
 
   // Axis from Exclusive FFB host (when node-hid can't open the wheel)
   try {
     ffbAxisSocket = dgram.createSocket('udp4')
     ffbAxisSocket.on('message', (msg) => {
       try {
-        const j = JSON.parse(msg.toString('utf8')) as { steer?: number }
-        if (typeof j.steer !== 'number' || Number.isNaN(j.steer)) return
-        // Never mix HID + FFB-host axis — switching between them twitches in-game wheels.
-        if (device) return
-        if (Date.now() - lastReportAt < 400) return
-        const s = Math.max(-1, Math.min(1, j.steer))
-        lastRawAxis = (s + 1) / 2
-        lastFfbAxisAt = Date.now()
-        if (!lastStatus.connected) {
-          lastStatus = {
-            ...lastStatus,
-            connected: true,
-            name: lastStatus.name || 'MOZA R5 Base',
-            model: lastStatus.model || 'R5',
-            firmware: 'FFB host axis',
+        const j = JSON.parse(msg.toString('utf8')) as {
+          steer?: number
+          y?: number
+          z?: number
+          rz?: number
+          s0?: number
+          left?: number
+          right?: number
+          btns?: number
+          padL?: number
+          padR?: number
+        }
+        const hidLive = Boolean(device) && Date.now() - lastReportAt < 400
+        // Paddles from FFB-host (Exclusive blocks HID).
+        // 1) Button bitmask — shift paddles / Pit House "Button" mode (auto-learn L/R)
+        // 2) Axis L/R — combined/independent clutch paddles
+        let paddleChanged = false
+        if (typeof j.btns === 'number') {
+          paddleChanged = updatePaddleFromBtnMask(j.btns) || paddleChanged
+        }
+        const leftT = typeof j.left === 'number' ? j.left : 0
+        const rightT = typeof j.right === 'number' ? j.right : 0
+        const yAbs = Math.abs(typeof j.y === 'number' ? j.y : 0)
+        const axisActive =
+          leftT > PADDLE_NORM_DEAD ||
+          rightT > PADDLE_NORM_DEAD ||
+          yAbs > PADDLE_NORM_DEAD
+        if (axisActive) {
+          if (leftT > 0.02 || rightT > 0.02) {
+            paddleChanged = updatePaddleFromSides(leftT, rightT) || paddleChanged
+          } else if (typeof j.y === 'number') {
+            paddleChanged = updatePaddleFromNorm(j.y) || paddleChanged
+          }
+        } else {
+          const candidates = [j.z, j.rz, j.s0].filter(
+            (v): v is number => typeof v === 'number' && Number.isFinite(v),
+          )
+          let best = 0
+          for (const c of candidates) {
+            if (Math.abs(c) > Math.abs(best)) best = c
+          }
+          if (Math.abs(best) > PADDLE_NORM_DEAD) {
+            paddleChanged = updatePaddleFromNorm(best) || paddleChanged
           }
         }
-        flushGtaControlsNow()
+
+        if (typeof j.steer === 'number' && !Number.isNaN(j.steer) && !hidLive) {
+          const s = Math.max(-1, Math.min(1, j.steer))
+          lastRawAxis = (s + 1) / 2
+          lastFfbAxisAt = Date.now()
+          if (!lastStatus.connected) {
+            lastStatus = {
+              ...lastStatus,
+              connected: true,
+              name: lastStatus.name || 'MOZA R5 Base',
+              model: lastStatus.model || 'R5',
+              firmware: 'FFB host axis',
+            }
+          }
+          flushGtaControlsNow()
+        } else if (paddleChanged) {
+          lastFfbAxisAt = Date.now()
+          flushGtaControlsNow()
+        }
       } catch {
         /* ignore */
       }

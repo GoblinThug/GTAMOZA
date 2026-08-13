@@ -23,6 +23,10 @@ export class MozaTelemetryService implements TelemetryService {
   private listeners = new Set<(sample: TelemetrySample) => void>()
   private unsub: (() => void) | null = null
 
+  private lastEmitAt = 0
+  /** Cap UI notifications — HID/controls stay on the main-process hot path. */
+  private static readonly UI_EMIT_MS = 50
+
   constructor() {
     if (!window.gtamoza) return
     this.unsub = window.gtamoza.onMozaSample((live) => {
@@ -40,11 +44,18 @@ export class MozaTelemetryService implements TelemetryService {
         lateralG: 0,
         yawRate: 0,
       }
+      const now = Date.now()
+      if (now - this.lastEmitAt < MozaTelemetryService.UI_EMIT_MS) return
+      this.lastEmitAt = now
       for (const listener of this.listeners) listener(this.sample)
     })
   }
 
   async getLatest() {
+    return this.sample
+  }
+
+  getSnapshot() {
     return this.sample
   }
 

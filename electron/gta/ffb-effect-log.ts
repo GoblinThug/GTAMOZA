@@ -27,7 +27,8 @@ let logPath: string | null = null
 let stream: fs.WriteStream | null = null
 let lastFlushAt = 0
 let lastSettingsSig = ''
-let enabled = true
+/** Off by default — continuous JSONL stalled FFB/input on the release hot path. */
+let enabled = false
 const SAMPLE_MS = 50 // 20 Hz — dense enough to tune, light on disk
 
 function logsDir(): string {
@@ -57,6 +58,10 @@ export function getFfbEffectLogPath(): string | null {
 
 export function setFfbEffectLogEnabled(on: boolean) {
   enabled = on
+}
+
+export function isFfbEffectLogEnabled(): boolean {
+  return enabled
 }
 
 /** Start / ensure a session file. Safe to call repeatedly. */

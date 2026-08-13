@@ -371,22 +371,42 @@ export function detectDefaultGtaPath(): string | null {
   return null
 }
 
-/** True if GTA V Enhanced / legacy process is running (not the same as plugin UDP). */
+/** Never call tasklist from timers — each spawn flashes conhost and hitches the UI. */
+let gtaProcessCache = false
+let gtaProcessCacheAt = 0
+
+/**
+ * Cached only — never spawns tasklist from timers (conhost hitch).
+ * Refresh via isGtaProcessRunningNow() on Launch / Settings refresh.
+ */
 export function isGtaProcessRunning(): boolean {
+  return gtaProcessCache
+}
+
+/** Sync check for rare user actions (Launch). Do not call from timers. */
+export function isGtaProcessRunningNow(): boolean {
   try {
     const out = execFileSync(
       'tasklist',
       ['/FI', 'IMAGENAME eq GTA5_Enhanced.exe', '/NH'],
       { encoding: 'utf8', windowsHide: true },
     )
-    if (/GTA5_Enhanced\.exe/i.test(out)) return true
+    if (/GTA5_Enhanced\.exe/i.test(out)) {
+      gtaProcessCache = true
+      gtaProcessCacheAt = Date.now()
+      return true
+    }
     const legacy = execFileSync(
       'tasklist',
       ['/FI', 'IMAGENAME eq GTA5.exe', '/NH'],
       { encoding: 'utf8', windowsHide: true },
     )
-    return /GTA5\.exe/i.test(legacy)
+    gtaProcessCache = /GTA5\.exe/i.test(legacy)
+    gtaProcessCacheAt = Date.now()
+    return gtaProcessCache
   } catch {
+    gtaProcessCache = false
+    gtaProcessCacheAt = Date.now()
     return false
   }
 }
@@ -765,7 +785,7 @@ export function launchGtaStoryNoBattlEye(gamePath: string): GtaLaunchResult {
   if (!isValidGameDir(gamePath)) {
     return { ok: false, error: 'invalid_game', store: 'unknown' }
   }
-  if (isGtaProcessRunning()) {
+  if (isGtaProcessRunningNow()) {
     return { ok: false, error: 'already_running', store: detectGtaStore(gamePath) }
   }
 

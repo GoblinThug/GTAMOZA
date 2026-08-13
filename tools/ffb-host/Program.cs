@@ -242,23 +242,68 @@ static class Program
                     }
 
                     double norm = 0;
+                    double yNorm = 0;
+                    double zNorm = 0;
+                    double rzNorm = 0;
+                    double s0Norm = 0;
+                    double leftTravel = 0;
+                    double rightTravel = 0;
+                    uint btnMask = 0;
                     try
                     {
                         var state = device.GetCurrentState<JoystickState, RawJoystickState, JoystickUpdate>();
                         norm = (state.X - 32767.5) / 32767.5;
                         if (norm > 1) norm = 1;
                         if (norm < -1) norm = -1;
+                        // Combined clutch paddles often on Y; also probe Z/Rz/Slider0
+                        yNorm = (state.Y - 32767.5) / 32767.5;
+                        if (yNorm > 1) yNorm = 1;
+                        if (yNorm < -1) yNorm = -1;
+                        zNorm = (state.Z - 32767.5) / 32767.5;
+                        if (zNorm > 1) zNorm = 1;
+                        if (zNorm < -1) zNorm = -1;
+                        rzNorm = (state.RotationZ - 32767.5) / 32767.5;
+                        if (rzNorm > 1) rzNorm = 1;
+                        if (rzNorm < -1) rzNorm = -1;
+                        if (state.Sliders != null && state.Sliders.Length > 0)
+                        {
+                            s0Norm = (state.Sliders[0] - 32767.5) / 32767.5;
+                            if (s0Norm > 1) s0Norm = 1;
+                            if (s0Norm < -1) s0Norm = -1;
+                        }
+                        // Independent clutch axes: positive travel each side (Y− / Y+ or Z/Rz)
+                        leftTravel = yNorm < 0 ? -yNorm : 0;
+                        rightTravel = yNorm > 0 ? yNorm : 0;
+                        if (leftTravel < 0.05 && zNorm < -0.12) leftTravel = -zNorm;
+                        if (rightTravel < 0.05 && zNorm > 0.12) rightTravel = zNorm;
+                        var btns = state.Buttons;
+                        if (btns != null)
+                        {
+                            int n = Math.Min(btns.Length, 32);
+                            for (int bi = 0; bi < n; bi++)
+                            {
+                                if (btns[bi]) btnMask |= 1u << bi;
+                            }
+                        }
                     }
                     catch { /* keep previous */ }
 
-                    // ~500 Hz axis feed — Exclusive mode blocks node-hid; this is the steer path
+                    // ~500 Hz axis feed — Exclusive mode blocks node-hid; steer + paddles/buttons
                     if ((DateTime.UtcNow - lastAxisSend).TotalMilliseconds >= 2)
                     {
                         lastAxisSend = DateTime.UtcNow;
                         try
                         {
+                            var inv = System.Globalization.CultureInfo.InvariantCulture;
                             var axisJson = Encoding.UTF8.GetBytes(
-                                "{\"steer\":" + norm.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) + "}");
+                                "{\"steer\":" + norm.ToString("0.####", inv) +
+                                ",\"y\":" + yNorm.ToString("0.####", inv) +
+                                ",\"z\":" + zNorm.ToString("0.####", inv) +
+                                ",\"rz\":" + rzNorm.ToString("0.####", inv) +
+                                ",\"s0\":" + s0Norm.ToString("0.####", inv) +
+                                ",\"left\":" + leftTravel.ToString("0.####", inv) +
+                                ",\"right\":" + rightTravel.ToString("0.####", inv) +
+                                ",\"btns\":" + btnMask + "}");
                             axisUdp.Send(axisJson, axisJson.Length, axisEp);
                         }
                         catch { /* axis optional */ }
@@ -317,53 +362,50 @@ static class Program
                     double turnRate = Math.Abs(dNorm);
                     double absN = Math.Abs(norm);
                     double flickEase = 1.0 - Math.Min(0.25, turnRate * 14.0);
-                    // Mild notch near center — heavy notch + park hold was fighting and drifting
-                    double centerNotch = 1.0 + (1.0 - Math.Min(1.0, absN / 0.14)) * 0.35;
+                    // Slightly heavier column (spring/damp/friction/inertia).
+                    double centerNotch = 1.0 + (1.0 - Math.Min(1.0, absN / 0.22)) * 0.12;
                     double springTarget =
-                        -norm * (2400 + 7000 * centerGain) * flickEase * centerNotch;
-                    springSm += (springTarget - springSm) * 0.34;
-                    // Extra damper near center kills left/right hunting (MOZA oscillation fix)
-                    double centerDamp = 1.0 + (1.0 - Math.Min(1.0, absN / 0.1)) * 0.55;
-                    // Ignore encoder micro-noise when hands-off / parked — stops idle buzz
-                    double dampRate = Math.Abs(dNorm) < 0.00035 ? 0.0 : dNorm;
-                    double damper = -dampRate * (500 + 2600 * dampGain) * centerDamp;
+                        -norm * (1100 + 3600 * centerGain) * flickEase * centerNotch;
+                    springSm += (springTarget - springSm) * 0.15;
+                    double centerDamp = 1.0 + (1.0 - Math.Min(1.0, absN / 0.14)) * 1.4;
+                    double dampRate = Math.Abs(dNorm) < 0.0004 ? 0.0 : dNorm;
+                    double damper = -dampRate * (1100 + 4600 * dampGain) * centerDamp;
                     // Friction: mechanical drag, but don't oppose return-to-center
                     double friction = 0;
                     if (turnRate > 0.00012)
                     {
-                        friction = -Math.Sign(dNorm) * (100 + 1200 * frictionGain);
+                        friction = -Math.Sign(dNorm) * (160 + 1700 * frictionGain);
                         bool returning =
                             Math.Abs(norm) > 0.008 &&
                             Math.Sign(dNorm) == -Math.Sign(norm);
-                        if (returning) friction *= 0.15;
+                        if (returning) friction *= 0.12;
                     }
                     double inertia =
-                        Math.Abs(dAcc) < 0.0005 ? 0.0 : -dAcc * (700 + 4200 * inertiaGain);
+                        Math.Abs(dAcc) < 0.0005 ? 0.0 : -dAcc * (1000 + 5400 * inertiaGain);
                     int mechOut = (int)Math.Round(
                         CenterPolarity * (springSm + damper + friction + inertia));
 
-                    // Mute small road/SAT bias near dead center (stops tip-over),
-                    // but let hard impacts punch through even when the rim is centered.
+                    // Let tire-model Mz through near center; mute only tiny texture noise.
+                    // Impacts always punch through.
                     double gameScale = 1.0;
-                    if (absN > 0.18)
-                        gameScale = Math.Max(0.55, 1.0 - (absN - 0.18) * 1.2);
-                    gameScale *= 0.92 + 0.08 * flickEase;
+                    if (absN > 0.22)
+                        gameScale = Math.Max(0.62, 1.0 - (absN - 0.22) * 0.95);
+                    gameScale *= 0.94 + 0.06 * flickEase;
                     double gameAbs = Math.Abs(gameMag);
-                    double impactBypass = Math.Min(1.0, gameAbs / 2200.0);
-                    if (absN < 0.06)
-                        gameScale *= 0.35 + (absN / 0.06) * 0.65 + impactBypass * 0.65;
+                    double impactBypass = Math.Min(1.0, gameAbs / 1200.0);
+                    if (absN < 0.04)
+                        gameScale *= 0.48 + (absN / 0.04) * 0.52 + impactBypass * 0.75;
                     gameScale = Math.Min(1.0, gameScale);
-                    // Game effects share spring polarity so SAT (−steer) recenters, not walks off
-                    int blendedGame = (int)Math.Round(CenterPolarity * gameMag * gameScale);
-                    // Drop tiny DC bias that holds the rim a few degrees off-center
-                    if (Math.Abs(blendedGame) < 180 && absN < 0.08 && Math.Abs(gameMag) < 350)
+                    // Tire Mz + textures/impacts use ForcePolarity (spring uses CenterPolarity).
+                    int blendedGame = (int)Math.Round(ForcePolarity * gameMag * gameScale);
+                    if (Math.Abs(blendedGame) < 160 && absN < 0.06 && gameAbs < 380)
                         blendedGame = 0;
                     int output = blendedGame + mechOut;
                     if (output > DiNominal) output = DiNominal;
                     if (output < -DiNominal) output = -DiNominal;
 
-                    // Soft slew on total output — stops rare full-side yanks from one bad sample
-                    const int maxOutStep = 2200;
+                    // Soft slew for cruise; wide slew for impacts so hits are felt
+                    int maxOutStep = gameAbs > 2800 ? 5600 : gameAbs > 1200 ? 3000 : 1200;
                     if (lastOut == int.MinValue) lastOut = 0;
                     int dOut = output - lastOut;
                     if (dOut > maxOutStep) output = lastOut + maxOutStep;
@@ -435,6 +477,12 @@ static class Program
             try { device?.Unacquire(); } catch { }
             try { device?.Dispose(); } catch { }
             try { di?.Dispose(); } catch { }
+            lock (EffectLogLock)
+            {
+                try { EffectLogWriter?.Flush(); } catch { }
+                try { EffectLogWriter?.Dispose(); } catch { }
+                EffectLogWriter = null;
+            }
         }
     }
 
@@ -450,6 +498,8 @@ static class Program
     }
 
     static readonly object EffectLogLock = new();
+    static StreamWriter? EffectLogWriter;
+    static DateTime lastEffectLogFlush = DateTime.MinValue;
 
     static void AppendEffectLog(string path, Dictionary<string, object?> row)
     {
@@ -458,7 +508,22 @@ static class Program
             var json = System.Text.Json.JsonSerializer.Serialize(row);
             lock (EffectLogLock)
             {
-                File.AppendAllText(path, json + "\n");
+                if (EffectLogWriter == null)
+                {
+                    EffectLogWriter = new StreamWriter(
+                        new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite),
+                        Encoding.UTF8)
+                    {
+                        AutoFlush = false,
+                    };
+                }
+                EffectLogWriter.WriteLine(json);
+                // Flush at most ~5 Hz — AppendAllText each sample stalled the FFB loop
+                if ((DateTime.UtcNow - lastEffectLogFlush).TotalMilliseconds >= 200)
+                {
+                    EffectLogWriter.Flush();
+                    lastEffectLogFlush = DateTime.UtcNow;
+                }
             }
         }
         catch

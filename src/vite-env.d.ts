@@ -60,6 +60,12 @@ export type GtamozaApi = {
     settings: ProfileSettings,
   ) => Promise<ProfilesStore>
   resetProfile: (id: string) => Promise<ProfilesStore>
+  restoreSettingsBackup: () => Promise<{
+    profiles: ProfilesStore
+    settings: AppSettings
+    ok: boolean
+    path: string | null
+  }>
   openExternal: (url: string) => Promise<void>
   windowMinimize: () => Promise<void>
   windowMaximizeToggle: () => Promise<boolean>

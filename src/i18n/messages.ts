@@ -204,7 +204,7 @@ const en = {
     'Game FFB intensity (MOZA): master gain for road / kerb / collision from GTA telemetry. R5 → keep high.',
   'ffb.centering': 'Self-aligning torque',
   'ffb.centeringDesc':
-    'Tire return force while moving (GTA has no FFB physics). Weak when parked — not Pit House Wheel Spring.',
+    'Return-to-center spring while moving. If the rim yanks into a turn, lower this (not Road). Pit House Wheel Spring = 0%.',
   'ffb.damping': 'Damping',
   'ffb.dampingDesc':
     'Wheel Damper: resists fast rim motion, cuts oscillation. Rises with speed (MOZA speed-dependent damping).',
@@ -228,7 +228,7 @@ const en = {
   'effects.grass': 'Grass',
   'effects.grassDesc': 'Softer, mushy resistance off-road or on grass.',
   'effects.suspension': 'Suspension',
-  'effects.suspensionDesc': 'Heave and bump travel through the chassis into the rim.',
+  'effects.suspensionDesc': 'Bumps and chassis heave only — not steering pull. Return force is Self-aligning torque.',
   'effects.wheelSlip': 'Wheel slip',
   'effects.wheelSlipDesc': 'Feedback when tyres lose and regain grip.',
   'effects.abs': 'ABS',
@@ -252,6 +252,11 @@ const en = {
   'profiles.renamed': 'Profile renamed',
   'profiles.deleted': 'Profile deleted',
   'profiles.reset': 'Profile reset',
+  'profiles.restoreBackup': 'Restore factory backup',
+  'profiles.restoreBackupDesc':
+    'Restore all profiles and pedal/cheat settings from the locked ideal backup.',
+  'profiles.restoreBackupDone': 'Factory backup restored',
+  'profiles.restoreBackupFail': 'Backup file not found',
 
   'settings.title': 'Settings',
   'settings.kicker': 'App',
@@ -576,7 +581,7 @@ const ru: Record<MessageKey, string> = {
     'Game FFB Intensity (MOZA): сила дорожных / бордюрных / ударных эффектов из телеметрии GTA. На R5 держи высоко.',
   'ffb.centering': 'Самовыравнивание (SAT)',
   'ffb.centeringDesc':
-    'Возврат шин на скорости (у GTA нет своей FFB-физики). На стоянке слабо — это не Wheel Spring из Pit House.',
+    'Пружина возврата в центр на скорости. Если руль рвёт в поворот — крути это вниз (не Дорогу). В Pit House Wheel Spring = 0%.',
   'ffb.damping': 'Демпфирование',
   'ffb.dampingDesc':
     'Wheel Damper: гасит дёрганье и осцилляции. Растёт со скоростью (как speed-dependent damping у MOZA).',
@@ -600,7 +605,7 @@ const ru: Record<MessageKey, string> = {
   'effects.grass': 'Трава',
   'effects.grassDesc': 'Мягкое «вязкое» сопротивление на траве и бездорожье.',
   'effects.suspension': 'Подвеска',
-  'effects.suspensionDesc': 'Ход подвески и ямы, которые доходят до обода.',
+  'effects.suspensionDesc': 'Только ямы и ход подвески — не тяга руля. Возврат в центр = Самовыравнивание (SAT).',
   'effects.wheelSlip': 'Пробуксовка',
   'effects.wheelSlipDesc': 'Ощущение потери и возврата сцепления шин.',
   'effects.abs': 'ABS',
@@ -624,6 +629,11 @@ const ru: Record<MessageKey, string> = {
   'profiles.renamed': 'Профиль переименован',
   'profiles.deleted': 'Профиль удалён',
   'profiles.reset': 'Профиль сброшен',
+  'profiles.restoreBackup': 'Восстановить заводской бэкап',
+  'profiles.restoreBackupDesc':
+    'Вернуть все профили и настройки педалей/читов из зафиксированного идеального бэкапа.',
+  'profiles.restoreBackupDone': 'Заводской бэкап восстановлен',
+  'profiles.restoreBackupFail': 'Файл бэкапа не найден',
 
   'settings.title': 'Настройки',
   'settings.kicker': 'Приложение',

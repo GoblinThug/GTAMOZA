@@ -14,6 +14,11 @@ export interface ProfileService {
 export interface SettingsService {
   load(): Promise<AppSettings>
   save(patch: Partial<AppSettings>): Promise<AppSettings>
+  restoreBackup(): Promise<{
+    profiles: ProfilesStore
+    settings: AppSettings
+    ok: boolean
+  }>
 }
 
 export interface UpdateService {

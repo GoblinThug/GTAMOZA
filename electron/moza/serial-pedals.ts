@@ -549,9 +549,10 @@ function applyExternalSync(sync: MozaBaseSync) {
 
 /**
  * Prefer Pit House CoAP (no COM conflict). Fall back to brief serial if Pit House is closed.
+ * Manual Pull — may scan processes once (tasklist/netstat).
  */
 export async function syncBaseSettings(): Promise<MozaBaseSync | null> {
-  const viaCoap = await syncBaseFromPitHouseCoap(maxTorqueHint)
+  const viaCoap = await syncBaseFromPitHouseCoap(maxTorqueHint, true)
   if (viaCoap) return applyExternalSync(viaCoap)
 
   const viaSerial = await syncBaseFromSerialOnce()
@@ -568,10 +569,10 @@ export async function tickSerialPedals(): Promise<void> {
   // intentionally empty
 }
 
-/** Background CoAP poll while Pit House is open (no COM touch). */
+/** Background CoAP poll — cached port only (no tasklist/netstat/conhost). */
 export async function tickBaseSettingsPoll(): Promise<void> {
   try {
-    const sync = await syncBaseFromPitHouseCoap(maxTorqueHint)
+    const sync = await syncBaseFromPitHouseCoap(maxTorqueHint, false)
     if (sync) applyExternalSync(sync)
   } catch (error) {
     console.warn('[moza-coap] poll failed', error)

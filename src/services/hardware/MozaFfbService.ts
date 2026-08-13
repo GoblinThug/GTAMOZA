@@ -13,9 +13,18 @@ export class MozaFfbService implements FfbService {
 
   constructor() {
     void this.refresh()
+  }
+
+  private ensurePoll() {
+    if (this.pollTimer != null) return
     this.pollTimer = window.setInterval(() => {
-      void this.refresh()
-    }, 500)
+      void this.refresh().then(() => {
+        if (!this.state.active && this.pollTimer != null) {
+          window.clearInterval(this.pollTimer)
+          this.pollTimer = null
+        }
+      })
+    }, 200)
   }
 
   private async refresh() {
@@ -37,6 +46,7 @@ export class MozaFfbService implements FfbService {
       return this.state
     }
     this.state = await window.gtamoza.mozaStartFfbTest({ mode, strength })
+    this.ensurePoll()
     this.emit()
     return this.state
   }
@@ -48,6 +58,10 @@ export class MozaFfbService implements FfbService {
       return this.state
     }
     this.state = await window.gtamoza.mozaStopFfbTest()
+    if (this.pollTimer != null) {
+      window.clearInterval(this.pollTimer)
+      this.pollTimer = null
+    }
     this.emit()
     return this.state
   }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button, Card, PedalMeters, StatusIndicator, WheelGauge } from '../components'
 import { useI18n } from '../i18n/useI18n'
 import type { MessageKey } from '../i18n/messages'
+import { useLiveTelemetry } from '../hooks/useLiveTelemetry'
 import { useAppStore } from '../stores/AppStore'
 
 type CalStep = 'idle' | 'throttle' | 'brake' | 'clutch' | 'done'
@@ -22,13 +23,13 @@ export function DashboardPage() {
   const {
     device,
     gta,
-    telemetry,
     profiles,
     activeSettings,
     updateAppSettings,
     baseSync,
     serialStatus,
   } = useAppStore()
+  const telemetry = useLiveTelemetry()
   const { t } = useI18n()
   const profileName =
     profiles.profiles.find((p) => p.id === profiles.selectedProfileId)?.name ?? '—'

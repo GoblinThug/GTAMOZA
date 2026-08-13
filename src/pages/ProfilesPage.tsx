@@ -12,6 +12,7 @@ export function ProfilesPage() {
     deleteProfile,
     renameProfile,
     resetActiveProfile,
+    restoreFactoryBackup,
     saveActiveProfile,
     dirty,
   } = useAppStore()
@@ -20,6 +21,7 @@ export function ProfilesPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [restoreOpen, setRestoreOpen] = useState(false)
   const [targetId, setTargetId] = useState<string | null>(null)
   const [name, setName] = useState('')
 
@@ -33,7 +35,10 @@ export function ProfilesPage() {
           <h1 className="page-title">{t('profiles.title')}</h1>
           <p className="page-desc">{t('profiles.desc')}</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={() => setRestoreOpen(true)}>
+            {t('profiles.restoreBackup')}
+          </Button>
           <Button
             variant="secondary"
             disabled={!dirty}
@@ -170,6 +175,25 @@ export function ProfilesPage() {
         }}
       >
         {t('profiles.deleteBody', { name: target?.name ?? '' })}
+      </Modal>
+
+      <Modal
+        open={restoreOpen}
+        title={t('profiles.restoreBackup')}
+        confirmLabel={t('profiles.restoreBackup')}
+        cancelLabel={t('common.cancel')}
+        onClose={() => setRestoreOpen(false)}
+        onConfirm={() => {
+          void restoreFactoryBackup().then((ok) => {
+            setRestoreOpen(false)
+            toast.push({
+              title: ok ? t('profiles.restoreBackupDone') : t('profiles.restoreBackupFail'),
+              tone: ok ? 'success' : 'error',
+            })
+          })
+        }}
+      >
+        <p className="field-hint">{t('profiles.restoreBackupDesc')}</p>
       </Modal>
     </div>
   )

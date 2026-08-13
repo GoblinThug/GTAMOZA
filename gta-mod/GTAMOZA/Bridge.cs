@@ -56,6 +56,9 @@ namespace GTAMOZA
         float _prevSteerSm;
         float _throttleSm;
         float _brakeSm;
+        /// <summary>MOZA clutch-paddle turn signals from Electron.</summary>
+        bool _indL;
+        bool _indR;
         int _handlingVehHandle;
         float _handlingSteerLockSaved = -1f;
         /// <summary>Reached a full stop (may still be holding the first brake).</summary>
@@ -118,6 +121,10 @@ namespace GTAMOZA
             try { ApplyControls(); }
             catch (Exception ex) { LogRare("apply: " + ex.Message); }
 
+            // Indicators run even if ApplyControls early-outs (stale pedals) — keeps NPC-style blink
+            try { ApplyIndicators(); }
+            catch (Exception ex) { LogRare("indicators: " + ex.Message); }
+
             if ((_frame & 1) == 0)
             {
                 try { SendSample(); }
@@ -162,6 +169,8 @@ namespace GTAMOZA
             _throttle = Clamp(ReadFloat(json, "throttle", _throttle), 0f, 1f);
             _brake = Clamp(ReadFloat(json, "brake", _brake), 0f, 1f);
             _clutch = Clamp(ReadFloat(json, "clutch", _clutch), 0f, 1f);
+            _indL = ReadFloat(json, "indL", _indL ? 1f : 0f) >= 0.5f;
+            _indR = ReadFloat(json, "indR", _indR ? 1f : 0f) >= 0.5f;
             _controlsAt = NowMs();
             _hasControls = true;
         }
@@ -320,6 +329,30 @@ namespace GTAMOZA
             }
             catch { }
 
+        }
+
+        /// <summary>
+        /// NPC-style blinkers via SET_VEHICLE_INDICATOR_LIGHTS every frame.
+        /// NativeDB: turnSignal 0 = left, 1 = right.
+        /// </summary>
+        void ApplyIndicators()
+        {
+            if (!_hasControls) return;
+            // Keep last paddle state for a bit after UDP hiccups
+            if (NowMs() - _controlsAt > 2500) return;
+
+            var ped = Game.Player.Character;
+            if (ped == null || !ped.Exists()) return;
+            var veh = ped.CurrentVehicle;
+            if (veh == null || !veh.Exists() || veh.Driver != ped) return;
+
+            try
+            {
+                int handle = veh.Handle;
+                Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, _indL);
+                Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, _indR);
+            }
+            catch { }
         }
 
         static float SoftPedal(float x, float gamma)

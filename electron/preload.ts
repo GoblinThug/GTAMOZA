@@ -67,6 +67,12 @@ const api = {
     ipcRenderer.invoke('profiles:updateSettings', id, settings),
   resetProfile: (id: string): Promise<ProfilesStore> =>
     ipcRenderer.invoke('profiles:reset', id),
+  restoreSettingsBackup: (): Promise<{
+    profiles: ProfilesStore
+    settings: AppSettings
+    ok: boolean
+    path: string | null
+  }> => ipcRenderer.invoke('settings:restoreBackup'),
 
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke('shell:openExternal', url),

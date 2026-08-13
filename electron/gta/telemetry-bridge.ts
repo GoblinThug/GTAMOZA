@@ -6,10 +6,10 @@ import { spawn, execFileSync, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { sleepSync } from '../win-sleep'
 import type { EffectsSettings, FfbSettings } from '../../shared/types'
 import {
   closeFfbEffectLog,
-  ensureFfbEffectLogSession,
   getFfbEffectLogPath,
   logFfbSample,
   logFfbSettings,
@@ -92,6 +92,7 @@ let ffbStopRequested = false
 let ffbRestartTimer: NodeJS.Timeout | null = null
 let ffbRestartAttempts = 0
 let magSm = 0
+let tireSm = 0
 let bumpSm = 0
 let slipSm = 0
 let collisionSm = 0
@@ -107,7 +108,15 @@ let roadPhase2 = 0
 let brakeFeelSm = 0
 let dampCmdSm = 0
 
-function emitStatus() {
+let lastStatusEmitAt = 0
+let lastTelemetryEmitAt = 0
+const STATUS_EMIT_MS = 1000
+const TELEMETRY_EMIT_MS = 50
+
+function emitStatus(force = false) {
+  const now = Date.now()
+  if (!force && now - lastStatusEmitAt < STATUS_EMIT_MS) return
+  lastStatusEmitAt = now
   const status = getGtaLinkStatus()
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('gta:link', status)
@@ -115,6 +124,9 @@ function emitStatus() {
 }
 
 function emitTelemetry(sample: GtaTelemetry) {
+  const now = Date.now()
+  if (now - lastTelemetryEmitAt < TELEMETRY_EMIT_MS) return
+  lastTelemetryEmitAt = now
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('gta:telemetry', sample)
   }
@@ -257,14 +269,23 @@ function matGrain(matId: number | undefined): number {
 }
 
 function surfaceAmp(kind: string, speedF: number, feelRoad: number): number {
-  if (kind === 'kerb') return (0.14 + speedF * 0.26) * effectStrength('kerb')
-  if (kind === 'dirt') return (0.095 + speedF * 0.16) * (effectStrength('grass') * 0.65 + effectStrength('road') * 0.3)
-  if (kind === 'grass') return (0.085 + speedF * 0.145) * effectStrength('grass')
-  if (kind === 'sand') return (0.09 + speedF * 0.15) * effectStrength('grass')
-  return (0.052 + speedF * 0.088) * effectStrength('road') * feelRoad
+  if (kind === 'kerb') return (0.1 + speedF * 0.2) * effectStrength('kerb')
+  if (kind === 'dirt') return (0.06 + speedF * 0.11) * (effectStrength('grass') * 0.65 + effectStrength('road') * 0.3)
+  if (kind === 'grass') return (0.055 + speedF * 0.1) * effectStrength('grass')
+  if (kind === 'sand') return (0.06 + speedF * 0.1) * effectStrength('grass')
+  // Plain asphalt: ACC/iRacing road — grain only, never a DC pull
+  return (0.008 + speedF * 0.014) * effectStrength('road') * feelRoad
 }
 
-/** Map telemetry → game-effect magnitude (centering is applied in ffb-host from physical axis). */
+/** Surface grip scalar for the tire model (asphalt ≈ 1, kerb lower traction / more grain). */
+function surfaceGrip(kind: string): number {
+  if (kind === 'kerb') return 0.72
+  if (kind === 'dirt' || kind === 'sand') return 0.55
+  if (kind === 'grass') return 0.48
+  return 1
+}
+
+/** Map telemetry → game-effect magnitude (mechanical column lives in ffb-host). */
 function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts } {
   const empty = (diMag: number): FfbEffectParts => ({
     suspensionLat: 0,
@@ -284,12 +305,14 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
 
   if (!ffbSettings || ffbSettings.enabled === false) {
     magSm = 0
+    tireSm = 0
     prevDiMag = 0
     latLoadSm = 0
     return { mag: 0, parts: empty(0) }
   }
   if (!t.inVehicle) {
     magSm *= 0.85
+    tireSm *= 0.85
     brakeFeelSm *= 0.85
     dampCmdSm *= 0.85
     latLoadSm *= 0.85
@@ -305,183 +328,218 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
   const feel = vehicleFeel(t.vehicle || '')
   const airborne = Boolean(t.airborne)
   const wheelsDown = t.wheelsDown ?? (airborne ? 2 : 4)
-  // Mute road / slip texture in air or on 1–2 wheels
   const contactGate = airborne || wheelsDown < 2 ? 0 : clamp((wheelsDown - 1.5) / 2.5, 0.25, 1)
   const crawlGate = clamp((t.speed - 1.2) / 5.5, 0, 1) * contactGate
-  // Parked / idle: kill oscillating game forces (engine buzz, false collision chatter)
   const movingGate = clamp((t.speed - 0.45) / 1.8, 0, 1)
 
-  // SAT / load: prefer real lateral accel when present (smoothed — raw spikes yank the rim)
   const susp = effectStrength('suspension') * feel.sat
   const latAccel = t.accelLat !== undefined ? t.accelLat : t.lateral
-  latLoadSm += (clamp(Math.abs(latAccel) / 12, 0, 1) - latLoadSm) * 0.22
-  const load = latLoadSm
-  const yawLoad = clamp(Math.abs(t.yawRate) / 2.1, 0, 1)
+  const latAbs = clamp(Math.abs(latAccel) / 14, 0, 1)
+  latLoadSm += (latAbs - latLoadSm) * (latAbs > latLoadSm ? 0.08 : 0.14)
+  const yawLoad = clamp(Math.abs(t.yawRate) / 2.4, 0, 1)
   const brakeRaw = clamp(t.brake ?? 0, 0, 1)
-  const brakeAtk = brakeRaw > brakeFeelSm ? 0.14 : 0.28
+  // Soft brake attack — hard bite was yanking the rim sideways
+  const brakeAtk = brakeRaw > brakeFeelSm ? 0.045 : 0.14
   brakeFeelSm += (brakeRaw - brakeFeelSm) * brakeAtk
   const brakeF = brakeFeelSm
-  // SAT only while rolling — at standstill host spring centers; steer-based SAT
-  // was a DC bias (mag≠0 at spd=0) that walked the rim off to one side.
-  const satLoad = Math.max(load, yawLoad * 0.45) * movingGate
-  const suspensionLat =
-    -steer *
-    (0.1 + 0.34 * speedF) *
-    (0.2 + 0.7 * Math.max(satLoad, speedF * 0.35)) *
-    susp *
-    (1 + brakeF * 0.1) *
-    movingGate
-  const suspensionYaw = -steer * yawLoad * 0.09 * susp * speedF * movingGate
-  const under = clamp(Math.abs(steer) - Math.abs(t.yawRate) * 0.35, 0, 1)
-  const understeer = -steer * under * 0.08 * susp * speedF * movingGate
+  const throttle = clamp(t.throttle, 0, 1)
+  const turnActivity = clamp(Math.abs(steer) * 1.35 + yawLoad * 0.85, 0, 1)
 
   const surf = t.surface || 'asphalt'
-  const grain = matGrain(t.matId)
+  const plainRoad = surf === 'asphalt' || surf === 'none' || surf === 'concrete'
+  const heat = clamp(t.tireHeat ?? 0, 0, 1)
+  const slipRaw = clamp(t.wheelSlip, 0, 1)
+  const slipIn = plainRoad && slipRaw < 0.18 ? 0 : slipRaw
+  slipSm += (slipIn - slipSm) * 0.2
+
+  // Tire model load only modulates host spring (sendFfbCommand). Do NOT send signed
+  // ±steer Mz as game mag — ForcePolarity vs GTA invert made it yank INTO the turn.
+  const tireLoadHint =
+    crawlGate *
+    (0.22 + 0.58 * speedF) *
+    (1 + brakeF * 0.35 + throttle * 0.08) *
+    (0.88 + 0.28 * latLoadSm) *
+    (1 - slipSm * 0.35) *
+    surfaceGrip(surf)
+  tireSm += (tireLoadHint - tireSm) * (0.12 + (1 - smoothSet) * 0.1)
+  const suspensionLat = 0
+  const understeer = 0
+  const suspensionYaw = 0
+
+  const grain = plainRoad ? 0.92 + (matGrain(t.matId) - 1) * 0.35 : matGrain(t.matId)
   const dt = 1 / 60
-  // Mid grain dominant; HF light — avoids buzz on asphalt (MOZA-style equalizer)
-  const roadHz = (4.8 + t.speed * 0.48) * (0.92 + 0.08 * grain)
+  const roadHz = plainRoad
+    ? (1.8 + t.speed * 0.18) * grain
+    : (4.8 + t.speed * 0.48) * (0.92 + 0.08 * grain)
   roadPhase += roadHz * dt
-  roadPhase2 += (2.1 + t.speed * 0.16) * dt
-  const roadPhase3 = roadPhase * 1.45
-  const tex =
-    Math.sin(roadPhase * Math.PI * 2) * 0.62 +
-    Math.sin(roadPhase2 * Math.PI * 2) * 0.26 +
-    Math.sin(roadPhase3 * Math.PI * 2) * 0.12 * grain
+  roadPhase2 += (plainRoad ? 0.95 + t.speed * 0.07 : 2.1 + t.speed * 0.16) * dt
+  const roadPhase3 = roadPhase * (plainRoad ? 1.12 : 1.45)
+  const tex = plainRoad
+    ? Math.sin(roadPhase * Math.PI * 2) * 0.85 + Math.sin(roadPhase2 * Math.PI * 2) * 0.15
+    : Math.sin(roadPhase * Math.PI * 2) * 0.62 +
+      Math.sin(roadPhase2 * Math.PI * 2) * 0.26 +
+      Math.sin(roadPhase3 * Math.PI * 2) * 0.12 * grain
 
   let surface = tex * surfaceAmp(surf, speedF, feel.road) * crawlGate * grain
-  // Split L/R: one wheel on kerb/grass pulls lightly toward that side
   const sL = t.surfL || surf
   const sR = t.surfR || surf
-  if (sL !== sR && crawlGate > 0.2) {
+  if (sL !== sR && crawlGate > 0.4 && brakeF < 0.5 && turnActivity > 0.2) {
     const aL = surfaceAmp(sL, speedF, feel.road)
     const aR = surfaceAmp(sR, speedF, feel.road)
-    const bias = clamp((aR - aL) * 0.55, -0.12, 0.12)
-    const midPulse = Math.sin(Date.now() / 68) * Math.abs(aR - aL) * 0.35 * crawlGate
-    surface += bias + midPulse * Math.sign(bias || 1)
+    surface += clamp((aR - aL) * 0.16, -0.035, 0.035)
   }
-  // Mid band boost for kerb / dirt (more expressive than HF road)
-  if (surf === 'kerb' || surf === 'dirt') {
-    surface += Math.sin(Date.now() / 55) * Math.abs(surface) * 0.12
+  if ((surf === 'kerb' || surf === 'dirt') && brakeF < 0.6) {
+    surface += Math.sin(Date.now() / 55) * Math.abs(surface) * 0.1
   }
 
-  // Suspension: bump spikes + low-freq pitch/roll/longitudinal load transfer
-  bumpSm += (clamp(t.bump ?? 0, 0, 1) - bumpSm) * 0.24
-  const pitch = t.pitchRate ?? 0
+  const bumpRaw = clamp(t.bump ?? 0, 0, 1)
+  const bumpIn = plainRoad && bumpRaw < 0.16 ? 0 : bumpRaw
+  bumpSm += (bumpIn - bumpSm) * (bumpIn > bumpSm ? 0.34 : 0.2)
   const roll = t.rollRate ?? 0
-  const accelFwd = t.accelFwd ?? 0
-  const bodyHeave =
-    Math.sin(Date.now() / 95) *
-    clamp(Math.abs(pitch) * 0.35 + Math.abs(roll) * 0.4 + Math.abs(accelFwd) / 28, 0, 1) *
-    0.1 *
-    susp *
-    feel.live *
-    crawlGate
+  const rollLean =
+    Math.abs(roll) > 0.5
+      ? -Math.sign(roll) *
+        clamp(Math.abs(roll) * 0.14, 0, 0.045) *
+        susp *
+        feel.live *
+        crawlGate *
+        (1 - brakeF * 0.5)
+      : 0
   const bump =
-    Math.sin(Date.now() / 48) * bumpSm * 0.28 * susp * feel.live * crawlGate + bodyHeave
+    bumpSm < 0.09
+      ? rollLean
+      : Math.sin(Date.now() / 48) *
+          bumpSm *
+          (plainRoad ? 0.18 : 0.36) *
+          susp *
+          feel.live *
+          crawlGate *
+          (1 - brakeF * 0.25) +
+        rollLean
 
-  // Wheel slip: real slip + tire heat texture (no throttle fake)
-  const heat = clamp(t.tireHeat ?? 0, 0, 1)
-  slipSm += (clamp(t.wheelSlip, 0, 1) - slipSm) * 0.18
   const slipAmp = slipSm * (0.85 + 0.45 * heat)
   const wheelSlip =
-    Math.sin(Date.now() / 58) *
-    slipAmp *
-    0.17 *
-    effectStrength('wheelSlip') *
-    feel.live *
-    crawlGate
+    slipSm < 0.12
+      ? 0
+      : Math.sin(Date.now() / 58) *
+        slipAmp *
+        (plainRoad ? 0.08 : 0.2) *
+        effectStrength('wheelSlip') *
+        feel.live *
+        crawlGate
 
   const colRaw = clamp(t.collision ?? 0, 0, 1)
   const colHard = clamp(t.colHard ?? 0.55, 0, 1)
-  const colTarget = colRaw > 0.05 ? colRaw : 0
-  const rise = colHard > 0.65 ? 0.62 : 0.38
-  collisionSm += (colTarget - collisionSm) * (colTarget > collisionSm ? rise : 0.14)
-  if (colRaw > 0.08 && colRaw > prevCollisionTel + 0.04) {
-    // Clear impact spike — capped so scrapes don't become full-lock yanks
-    const spike = colRaw * (0.55 + 0.55 * colHard)
+  // Ignore soft "hits" under braking on a straight — they yank the rim sideways
+  const brakeStraight = brakeF > 0.28 && turnActivity < 0.22
+  const colArm =
+    !brakeStraight &&
+    (colHard > 0.62 || colRaw > 0.2 || (turnActivity > 0.25 && colRaw > 0.1))
+  const colTarget = colArm && colRaw > 0.05 ? colRaw : 0
+  const rise = colHard > 0.65 ? 0.78 : 0.48
+  collisionSm += (colTarget - collisionSm) * (colTarget > collisionSm ? rise : 0.16)
+  if (colArm && colRaw > 0.08 && colRaw > prevCollisionTel + 0.03) {
+    const spike = colRaw * (0.7 + 0.55 * colHard)
     collisionImpulse = Math.max(
       collisionImpulse,
-      clamp(spike, 0.14 + 0.12 * colHard, 0.55 + 0.25 * colHard),
+      clamp(spike, 0.2 + 0.15 * colHard, 0.72 + 0.22 * colHard),
     )
-    const dirHint = -Math.sign(latAccel || steer || collisionDir || 1)
+    const dirHint = -Math.sign(
+      turnActivity > 0.2 ? latAccel || collisionDir || 1 : collisionDir || latAccel || 1,
+    )
     if (dirHint !== 0) collisionDir = dirHint
   }
   prevCollisionTel = colRaw
-  collisionImpulse *= colHard > 0.65 ? 0.68 : 0.8
+  collisionImpulse *= colHard > 0.65 ? 0.78 : 0.86
+  if (!colArm) {
+    collisionSm *= 0.5
+    collisionImpulse *= 0.4
+  }
   const colGain = effectStrength('collision')
   let collision = 0
-  // Idle telemetry jitter was re-triggering soft collisions → HF chatter on the rim
-  if (movingGate < 0.15 && collisionImpulse < 0.2) {
-    collisionSm *= 0.65
-    collisionImpulse *= 0.5
+  if (movingGate < 0.12 && collisionImpulse < 0.25) {
+    collisionSm *= 0.6
+    collisionImpulse *= 0.45
   } else if (collisionSm > 0.02 || collisionImpulse > 0.02) {
-    // Keep shove direction sticky for the whole impulse (no L↔R flip mid-hit)
-    const body = collisionSm * (0.22 + 0.2 * (1 - colHard * 0.5))
+    const body = collisionSm * (0.28 + 0.22 * (1 - colHard * 0.4))
     const thump = collisionImpulse * (0.55 + 0.4 * colHard)
     const chatter =
-      colHard > 0.7 && collisionImpulse > 0.25 && movingGate > 0.45
-        ? Math.sin(Date.now() / 22) * collisionImpulse * 0.1 * colHard
+      colHard > 0.65 && collisionImpulse > 0.22 && movingGate > 0.35
+        ? Math.sin(Date.now() / 20) * collisionImpulse * 0.14 * colHard
         : 0
     const crawlMute =
-      collisionImpulse > 0.4 || colHard > 0.75
-        ? clamp(0.45 + t.speed / 16, 0.45, 1)
-        : clamp((t.speed - 1.5) / 8, 0.15, 1)
+      collisionImpulse > 0.35 || colHard > 0.7
+        ? clamp(0.55 + t.speed / 14, 0.55, 1)
+        : clamp((t.speed - 1.2) / 7, 0.2, 1)
     collision = clamp(
       collisionDir * (body + thump + chatter) * colGain * crawlMute,
-      -0.55,
-      0.55,
+      -0.9,
+      0.9,
     )
   }
 
-  // Engine shake only when rolling or revving — idle RPM sine was buzzing the wheel at standstill
-  const engineGate = Math.max(movingGate, clamp(t.throttle, 0, 1) * 0.55)
+  const engineGate =
+    throttle > 0.14 || t.rpm > 0.75 ? clamp(throttle * 0.85 + (t.rpm - 0.55) * 0.45, 0, 1) : 0
   const engine =
-    Math.sin(Date.now() / 24) *
-    t.rpm *
-    0.055 *
-    effectStrength('engine') *
-    (0.25 + t.throttle * 0.45) *
-    engineGate
+    engineGate <= 0
+      ? 0
+      : Math.sin(Date.now() / 28) *
+        t.rpm *
+        0.02 *
+        effectStrength('engine') *
+        (0.18 + throttle * 0.5) *
+        engineGate *
+        movingGate
   let abs = 0
-  if (brakeF > 0.82 && t.speed > 5) {
-    abs = Math.sin(Date.now() / 26) * 0.075 * effectStrength('abs')
+  if (brakeF > 0.75 && t.speed > 6 && slipSm > 0.22) {
+    abs = Math.sin(Date.now() / 30) * 0.035 * effectStrength('abs') * slipSm
   }
 
-  const rawSum =
-    suspensionLat +
-    suspensionYaw +
-    understeer +
-    surface +
-    bump +
-    wheelSlip +
-    collision +
-    engine +
-    abs
-  let scaled = rawSum * master * 0.95 * feel.live
-  // Kill leftover DC bias when stopped (was pressing rim a few degrees off-center)
+  // Tire path keeps full weight on cruise; textures get calm (sim road detail)
+  const textureSum = surface + bump + wheelSlip + engine + abs
+  const impactHit = collisionImpulse > 0.16 || bumpSm > 0.35 || surf === 'kerb'
+  const cruiseCalm =
+    plainRoad && !impactHit
+      ? 0.14 + 0.22 * turnActivity + 0.12 * brakeF + 0.08 * throttle
+      : 1
+  const tirePart = (suspensionLat + suspensionYaw + understeer) * master * 0.82 * feel.live
+  const texPart = textureSum * master * 0.48 * feel.live * clamp(cruiseCalm, 0.12, 1)
+  const colPart =
+    collision * master * 0.68 * feel.live * (brakeStraight && colHard < 0.7 ? 0.25 : 1)
+  let scaled = (tirePart + texPart + colPart) * (1 - brakeF * 0.28)
   if (movingGate < 0.12) {
     scaled *= movingGate / 0.12
     magSm *= 0.72
+    tireSm *= 0.85
   }
-  const alphaBase = 0.18 + (1 - smoothSet) * 0.26
-  // Impacts readable, but not an unsmoothed full-lock yank
-  const alpha =
-    collisionImpulse > 0.18
-      ? Math.min(0.72, alphaBase + 0.28 + 0.18 * colHard)
-      : alphaBase
-  magSm += (scaled - magSm) * alpha
-  if (Math.abs(magSm) < 0.008 && movingGate < 0.2) magSm = 0
-  const diCap = collisionImpulse > 0.25 ? 7800 : 6500
+  const reconBoost = clamp(
+    brakeF * 0.3 + (1 - turnActivity) * (plainRoad ? 0.22 : 0.1),
+    0,
+    0.5,
+  )
+  const alphaBase = 0.12 + (1 - smoothSet) * 0.2
+  const alpha = impactHit
+    ? Math.min(0.88, alphaBase + 0.42 + 0.22 * colHard)
+    : alphaBase * (1 - reconBoost * 0.45)
+  magSm += (scaled - magSm) * Math.max(0.06, alpha)
+  if (Math.abs(magSm) < 0.01 && movingGate < 0.25) magSm = 0
+
+  const diCap = impactHit ? 7200 : plainRoad ? 2800 : 4800
   let diMag = Math.round(clamp(magSm * 10000, -diCap, diCap))
-  // Soft slew — settings.slewRate 0=soft … 100=fast; stops sudden side yanks
-  const slewSet = clamp((ffbSettings.slewRate ?? 50) / 100, 0, 1)
-  const maxStep = Math.round(900 + 4200 * slewSet + (collisionImpulse > 0.2 ? 1800 : 0))
+  const slewSet = clamp((ffbSettings.slewRate ?? 40) / 100, 0, 1)
+  // Under brake: much slower game-force slew (kills lateral snap)
+  const brakeSlewCut = 1 - brakeF * 0.62
+  const cruiseSlewCut = plainRoad && !impactHit ? 0.7 : 1
+  const maxStep = Math.round(
+    (480 + 2400 * slewSet + (impactHit ? 3000 : 0)) * brakeSlewCut * cruiseSlewCut,
+  )
   const delta = diMag - prevDiMag
   if (Math.abs(delta) > maxStep) {
-    diMag = prevDiMag + Math.sign(delta) * maxStep
+    diMag = prevDiMag + Math.sign(delta || 1) * maxStep
   }
   prevDiMag = diMag
 
+  const rawSum = suspensionLat + suspensionYaw + understeer + textureSum + collision
   return {
     mag: diMag,
     parts: {
@@ -570,6 +628,9 @@ export function sendGtaControls(controls: {
   brake: number
   clutch: number
   wheelAngle?: number
+  /** Clutch-paddle turn signals (toggle state). */
+  indL?: boolean
+  indR?: boolean
 }) {
   if (!controlSocket) {
     controlSocket = dgram.createSocket('udp4')
@@ -580,20 +641,20 @@ export function sendGtaControls(controls: {
     brake: Number(controls.brake.toFixed(4)),
     clutch: Number(controls.clutch.toFixed(4)),
     wheelAngle: controls.wheelAngle ?? null,
+    indL: controls.indL ? 1 : 0,
+    indR: controls.indR ? 1 : 0,
   }
   const payload = Buffer.from(JSON.stringify(body), 'utf8')
-  // Hot path: UDP only (sync file I/O was adding input lag every tick)
+  // Hot path: UDP only — never block the main thread for the file fallback
   controlSocket.send(payload, CONTROL_PORT, '127.0.0.1')
 
   const now = Date.now()
-  if (now - lastControlsFileWrite > 80) {
+  if (now - lastControlsFileWrite > 250) {
     lastControlsFileWrite = now
-    try {
-      const file = path.join(app.getPath('temp'), 'gtamoza_controls.json')
-      fs.writeFileSync(file, payload)
-    } catch {
+    const file = path.join(app.getPath('temp'), 'gtamoza_controls.json')
+    fs.promises.writeFile(file, payload).catch(() => {
       /* ignore */
-    }
+    })
   }
 }
 
@@ -601,7 +662,7 @@ export function setFfbHostEnabled(enabled: boolean) {
   ffbHostEnabled = enabled
   if (enabled) {
     ffbRestartAttempts = 0
-    ensureFfbEffectLogSession()
+    // Effect logs are opt-in (Settings → Open FFB logs) — sync disk I/O stalls FFB
     logFfbSettings(ffbSettings, effects)
     const ok = startFfbHost()
     if (!ok) console.warn('[gta-ffb] host enabled but exe failed to start')
@@ -613,7 +674,12 @@ export function setFfbHostEnabled(enabled: boolean) {
 function scheduleFfbRestart() {
   if (!ffbHostEnabled || ffbStopRequested) return
   if (ffbRestartTimer) return
-  const delay = Math.min(8000, 800 + ffbRestartAttempts * 700)
+  // Missing native deps used to crash-loop every ~1s and freeze the UI
+  if (ffbRestartAttempts >= 12) {
+    console.error('[gta-ffb] host keep dying — stop auto-restart (check resources/ffb-host DLLs)')
+    return
+  }
+  const delay = Math.min(15_000, 1200 + ffbRestartAttempts * 1200)
   ffbRestartAttempts += 1
   console.warn(`[gta-ffb] restarting host in ${delay}ms (try ${ffbRestartAttempts})`)
   ffbRestartTimer = setTimeout(() => {
@@ -633,35 +699,44 @@ function sendFfbCommand(magnitude: number) {
     cmdSocket = dgram.createSocket('udp4')
   }
   /**
-   * MOZA model for titles without FFB physics:
-   * - center = tire self-aligning torque (grows with speed + lateral load), not a park magnet
-   * - damp = Wheel Damper (stability; rises a bit with speed / brake)
-   * - friction / inertia = mechanical filters (were missing from the host path)
+   * Sim column (iRacing / ACC style):
+   * - center = ONLY return-to-center spring (Pit House Wheel Spring = 0%)
+   * - tire load from telemetry makes spring heavier — never signed ±steer in gameMag
+   * - damp = stability + brake weight (not lateral yank)
    */
-  const satGain = clamp((ffbSettings?.selfAligningTorque ?? 64) / 100, 0, 1)
+  const satGain = clamp((ffbSettings?.selfAligningTorque ?? 46) / 100, 0, 1)
   const speedMs = lastTelemetry?.speed ?? 0
   const speedF = clamp(speedMs / 28, 0, 1)
-  // Light park spring; real SAT bite comes with speed (heavy floor was walking the rim off-center).
   const speedSat = clamp((speedMs - 0.6) / 12, 0, 1)
-  const latLoad = lastTelemetry
-    ? clamp(Math.abs(lastTelemetry.lateral) / 12, 0, 1)
-    : 0
+  const steerAbs = Math.abs(lastTelemetry?.steer ?? 0)
+  const yawAbs = clamp(Math.abs(lastTelemetry?.yawRate ?? 0) / 2.4, 0, 1)
+  const turnGate = clamp(steerAbs * 1.3 + yawAbs * 0.8, 0, 1)
+  const latLoad = latLoadSm * (0.2 + 0.8 * turnGate)
+  const tireLoad = clamp(tireSm, 0, 1.35)
   const feel = vehicleFeel(lastTelemetry?.vehicle ?? '')
+  // Host-only centering — load makes it heavier in turns, never yanks into the lock
   const center = clamp(
-    satGain * (0.14 + 0.86 * speedSat) * (0.85 + 0.25 * latLoad * speedSat) * feel.spring,
+    satGain *
+      (0.06 + 0.58 * speedSat) *
+      (0.9 + 0.1 * latLoad * speedSat + 0.16 * tireLoad * (1 - brakeFeelSm * 0.45)) *
+      feel.spring *
+      (1 - brakeFeelSm * 0.12),
+    0,
+    0.68,
+  )
+  const dampBase =
+    ((ffbSettings?.damping ?? 55) / 100) * (0.72 + 0.28 * speedF)
+  // Gentle brake weight — was +0.42 and snapped damp → side yank
+  const dampTarget = clamp(
+    dampBase + brakeFeelSm * 0.16 + (1 - turnGate) * 0.1,
     0,
     1,
   )
-  // Speed-dependent damping + a bit more at crawl to stop center hunting.
-  const dampBase =
-    ((ffbSettings?.damping ?? 34) / 100) * (0.7 + 0.3 * speedF)
-  const dampTarget = clamp(dampBase + brakeFeelSm * 0.2, 0, 1)
   if (dampCmdSm <= 0.001 && dampBase > 0) dampCmdSm = dampBase
-  dampCmdSm += (dampTarget - dampCmdSm) * (dampTarget > dampCmdSm ? 0.18 : 0.28)
+  dampCmdSm += (dampTarget - dampCmdSm) * (dampTarget > dampCmdSm ? 0.07 : 0.22)
   const damp = dampCmdSm
-  // Mild friction — heavy coulomb was fighting return and tipping the rim off center.
-  const friction = clamp((ffbSettings?.friction ?? 10) / 100, 0, 1)
-  const inertia = clamp((ffbSettings?.inertia ?? 12) / 100, 0, 1)
+  const friction = clamp((ffbSettings?.friction ?? 12) / 100, 0, 1)
+  const inertia = clamp((ffbSettings?.inertia ?? 14) / 100, 0, 1)
   const payload = Buffer.from(
     JSON.stringify({
       magnitude,
@@ -689,28 +764,19 @@ function resolveFfbHostExe(): string | null {
   return null
 }
 
-function killStrayFfbHosts() {
+function killStrayFfbHosts(opts?: { waitMs?: number }) {
+  let killed = false
   try {
     execFileSync('taskkill', ['/F', '/IM', 'gtamoza-ffb.exe'], {
       windowsHide: true,
       stdio: 'ignore',
     })
+    killed = true
   } catch {
     /* no process — fine */
   }
-  // Let Windows release UDP 29756 before the next bind
-  try {
-    execFileSync(
-      'powershell.exe',
-      ['-NoProfile', '-Command', 'Start-Sleep -Milliseconds 450'],
-      { windowsHide: true, stdio: 'ignore' },
-    )
-  } catch {
-    const until = Date.now() + 450
-    while (Date.now() < until) {
-      /* spin */
-    }
-  }
+  // Only wait when something was actually killed (UDP release)
+  if (killed) sleepSync(opts?.waitMs ?? 450)
 }
 
 export function startFfbHost(): boolean {
@@ -724,7 +790,8 @@ export function startFfbHost(): boolean {
     ffbStopRequested = false
     // Must finish BEFORE spawn — async taskkill was killing the new process (exit 1)
     killStrayFfbHosts()
-    const logFile = ensureFfbEffectLogSession()
+    // Only attach host JSONL when logging was explicitly enabled (see ffb-effect-log)
+    const logFile = getFfbEffectLogPath()
     ffbProc = spawn(exe, [], {
       cwd: path.dirname(exe),
       windowsHide: true,
@@ -746,12 +813,12 @@ export function startFfbHost(): boolean {
     proc.on('exit', (code) => {
       console.warn('[gta-ffb] host exited', code === null ? 'null' : code)
       ffbProc = null
-      emitStatus()
+      emitStatus(true)
       if (ffbHostEnabled && !ffbStopRequested) scheduleFfbRestart()
     })
     console.log('[gta-ffb] host started', exe)
     ffbRestartAttempts = 0
-    emitStatus()
+    emitStatus(true)
     return true
   } catch (err) {
     console.warn('[gta-ffb] failed to start host', err)
@@ -793,11 +860,12 @@ export function initGtaTelemetryBridge() {
       if (!sample) return
       lastTelemetry = sample
       lastAt = Date.now()
-      emitTelemetry(sample)
-      emitStatus()
+      // FFB first — UI IPC must never delay the force / input path
       const { mag, parts } = computeMagnitude(sample)
       sendFfbCommand(mag)
       logEffectBreakdown(sample, parts)
+      emitTelemetry(sample)
+      emitStatus()
       const now = Date.now()
       if (now - lastMagLogAt > 1500 && (Math.abs(mag) > 200 || Math.abs(lastLoggedMag) > 200)) {
         lastMagLogAt = now
@@ -838,11 +906,12 @@ export function initGtaTelemetryBridge() {
   // Host is started from profile sync via setFfbHostEnabled(ffb.enabled)
 
   tickTimer = setInterval(() => {
+    // Link UI at 1 Hz — was 2 Hz + sync tasklist and hitching the whole app
     emitStatus()
     if (!lastAt || Date.now() - lastAt > STALE_MS) {
       sendFfbCommand(0)
     }
-  }, 500)
+  }, 1000)
 }
 
 export function disposeGtaTelemetryBridge() {

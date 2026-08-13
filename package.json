@@ -1,6 +1,6 @@
 {
   "name": "gtamoza",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "GTA Moza Drive — force feedback for MOZA wheel bases (R3/R5/R9/…) in GTA V Enhanced Story Mode",
   "author": "Goblin_Thug",
   "main": "dist-electron/main.js",
@@ -60,18 +60,28 @@
       "dist-electron/**/*",
       "build/icon.png",
       "build/icon.ico",
-      "package.json"
+      "package.json",
+      "config/settings-backup.json"
     ],
     "extraResources": [
       {
         "from": "tools/ffb-host/dist",
         "to": "ffb-host",
-        "filter": ["gtamoza-ffb.exe", "gtamoza-ffb.dll", "*.json", "*.pdb"]
+        "filter": [
+          "*.exe",
+          "*.dll",
+          "*.json"
+        ]
       },
       {
         "from": "gta-mod/dist",
         "to": "gta-mod",
         "filter": ["GTAMOZA.dll"]
+      },
+      {
+        "from": "config",
+        "to": "config",
+        "filter": ["settings-backup.json"]
       }
     ],
     "asarUnpack": [
