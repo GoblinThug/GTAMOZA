@@ -1,0 +1,190 @@
+name: Release
+
+# Push to main → ensure tag vX.Y.Z + draft GitHub Release, then build Windows
+# and upload assets. When the build succeeds, publish the draft.
+# Manual: Actions → Release → Run workflow.
+#
+# App is Windows-only (MOZA DirectInput + GTA Enhanced). GTAMOZA.dll and
+# gtamoza-ffb.exe are built here and packed into the installer via extraResources.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Upload artifacts to GitHub Releases'
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '22'
+  # electron-builder must upload into a draft (mutable) release
+  EP_DRAFT: 'true'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      publish: ${{ steps.meta.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version / publish flag
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+          TAG="v${VERSION}"
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ inputs.publish }}" == "true" ]]; then
+            PUBLISH=true
+          else
+            PUBLISH=false
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          echo "Version ${VERSION} (tag ${TAG}), publish=${PUBLISH}"
+
+      - name: Ensure git tag and draft GitHub Release
+        if: steps.meta.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.meta.outputs.tag }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists"
+          else
+            git tag "${TAG}" "${GITHUB_SHA}"
+            git push origin "refs/tags/${TAG}"
+            echo "Created tag ${TAG} → ${GITHUB_SHA}"
+          fi
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "${TAG}" --json isDraft -q .isDraft)"
+            if [[ "${IS_DRAFT}" != "true" ]]; then
+              echo "::error::Release ${TAG} already exists and is published (immutable)."
+              echo "Bump package.json version and push again."
+              exit 1
+            fi
+            echo "Draft release ${TAG} already exists"
+          else
+            if ! gh release create "${TAG}" \
+              --title "GTA Moza Drive ${VERSION}" \
+              --generate-notes \
+              --draft \
+              --verify-tag; then
+              echo "::error::Could not create draft ${TAG}."
+              echo "If the tag was used by a deleted immutable release, bump package.json version."
+              exit 1
+            fi
+            echo "Created draft GitHub Release ${TAG}"
+          fi
+
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            6.0.x
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync version
+        shell: bash
+        run: |
+          npm version "${{ needs.prepare.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Fetch ScriptHookVDotNet3.dll (nightly → libs/)
+        shell: pwsh
+        run: ./scripts/fetch-shvdn.ps1
+
+      - name: Build native (GTAMOZA.dll + gtamoza-ffb.exe)
+        run: npm run build:native
+
+      - name: Build Electron app
+        run: npm run build
+
+      - name: Package / publish Windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          EP_DRAFT: 'true'
+        shell: bash
+        run: |
+          if [[ "${{ needs.prepare.outputs.publish }}" == "true" ]]; then
+            npx electron-builder --win --publish always
+          else
+            npx electron-builder --win
+          fi
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: gtamoza-windows
+          path: |
+            release/GTAMOZA-Setup-*.exe
+            release/GTAMOZA-Setup-*.exe.blockmap
+            release/GTAMOZA-Portable-*.exe
+            release/latest.yml
+            gta-mod/dist/GTAMOZA.dll
+            tools/ffb-host/dist/gtamoza-ffb.exe
+          if-no-files-found: error
+
+  publish-release:
+    needs: [prepare, windows]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.prepare.outputs.tag }}"
+          REPO="${{ github.repository }}"
+
+          if ! gh release edit "${TAG}" --repo "${REPO}" --draft=false --latest; then
+            echo "::error::Failed to publish ${TAG}."
+            echo "If you see 'tag_name was used by an immutable release', bump package.json version."
+            exit 1
+          fi
+          echo "Published ${TAG} as the latest release"

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>gtamoza-ffb</AssemblyName>
+    <RootNamespace>GTAMOZA.FfbHost</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>..\..\tools\ffb-host\dist\</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.DirectInput" Version="3.6.2" />
+  </ItemGroup>
+</Project>

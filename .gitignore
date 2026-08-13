@@ -1,0 +1,56 @@
+# MOZA Racing SDK (proprietary — keep local, do not publish)
+vendor/moza-sdk/
+
+# Dependencies & build outputs
+node_modules/
+dist/
+dist-electron/
+release/
+out/
+*.log
+.DS_Store
+Thumbs.db
+
+# Vite / TypeScript
+.vite/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+vite.config.js.map
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local app data
+settings.json
+**/settings.json
+profiles.json
+**/profiles.json
+logs/
+**/logs/
+ffb-effects-*.jsonl
+
+# Built native helpers (rebuild with npm run build:native)
+gta-mod/dist/*.pdb
+tools/ffb-host/dist/*.pdb
+# Local SHVDN copy for builds (CI downloads nightly into libs/)
+libs/*
+!libs/README.md
+
+# Packaged Electron artifacts
+*.asar
+*.exe
+*.dmg
+*.AppImage
+*.blockmap
+*.snap
+*.deb
+*.rpm
+*.msi
+latest.yml
+latest-mac.yml
+latest-linux.yml
+builder-debug.yml
+builder-effective-config.yaml

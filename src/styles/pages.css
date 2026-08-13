@@ -1,0 +1,611 @@
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 !important;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.profile-item:last-child {
+  border-bottom: none;
+}
+
+.profile-item:hover {
+  background: var(--surface-hover);
+}
+
+.profile-item[data-active='true'] {
+  background: var(--accent-muted);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.profile-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.effect-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) 1fr auto;
+  align-items: start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.effect-row:last-child {
+  border-bottom: none;
+}
+
+.effect-row .setting-field {
+  padding: 0;
+  border: none;
+}
+
+.effect-name {
+  padding-top: 2px;
+}
+
+.effect-name strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.effect-name p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.diag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.diag-row:last-child {
+  border-bottom: none;
+}
+
+.diag-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ffb-test-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0 12px;
+}
+
+.gta-box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 16px 16px !important;
+}
+
+.gta-box-lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.gta-status-hint {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.gta-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.gta-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--background-secondary);
+}
+
+.gta-mode-card[data-active='true'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-muted);
+}
+
+.gta-mode-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.gta-mode-card-head strong {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 14px;
+}
+
+.gta-mode-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.gta-mode-pill[data-on='true'] {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+  color: var(--success);
+}
+
+.gta-actions-secondary {
+  justify-content: flex-start;
+  opacity: 0.92;
+}
+
+.link-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+}
+
+.link-status-meta {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 900px) {
+  .gta-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gta-box-warn {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--warning);
+}
+
+.gta-box .setting-row {
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.gta-path-block {
+  min-width: 0;
+  flex: 1;
+}
+
+.gta-path-value {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-all;
+  color: var(--text-secondary);
+}
+
+.gta-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.gta-status-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.gta-status-main strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.gta-online-badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--surface-hover);
+}
+
+.gta-online-badge[data-safe='true'] {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.gta-online-badge[data-safe='false'] {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.gta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.update-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 !important;
+}
+
+.update-box .setting-row,
+.update-box .ffb-test-panel,
+.update-box .field-row,
+.update-box .field-hint,
+.update-box .progress {
+  margin: 0;
+}
+
+.update-box .field-row,
+.update-box > .field-hint,
+.update-box .ffb-test-panel,
+.update-box .progress {
+  padding: 12px 16px;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.status-panel .field-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-panel .field-row:last-child {
+  border-bottom: none;
+  padding-bottom: 12px;
+}
+
+.status-panel .stack {
+  padding: 4px 16px 8px;
+}
+
+/* —— Live wheel / pedals (Pit House–style) —— */
+.live-inputs {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(200px, 0.9fr);
+  gap: 28px;
+  align-items: center;
+  padding: 8px 8px 4px;
+}
+
+.live-inputs-hint {
+  margin: 4px 16px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.pedal-cal-banner {
+  margin: 8px 16px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-muted);
+}
+
+.pedal-cal-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pedal-cal-error {
+  margin-top: 8px !important;
+  color: var(--error);
+}
+
+.pedal-cal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.wheel-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0.45;
+  transition: opacity var(--transition);
+}
+
+.wheel-gauge[data-connected='true'] {
+  opacity: 1;
+}
+
+.wheel-gauge-ring {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+}
+
+.wheel-gauge-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wheel-gauge-track {
+  stroke: color-mix(in srgb, var(--border-strong) 70%, transparent);
+}
+
+.wheel-gauge-travel {
+  transition: opacity 80ms ease;
+}
+
+.wheel-gauge-tick {
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.wheel-gauge-tick-center {
+  stroke: var(--text-secondary);
+  stroke-width: 2.4;
+}
+
+.wheel-gauge-disc {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 3;
+  transition: stroke 120ms ease;
+}
+
+.wheel-gauge-disc[data-side='right'] {
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.wheel-gauge-disc[data-side='left'] {
+  stroke: color-mix(in srgb, var(--info) 35%, transparent);
+}
+
+.wheel-gauge-core {
+  fill: var(--surface-hover);
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+
+.wheel-gauge-bead {
+  fill: var(--text-primary);
+  stroke: var(--accent);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.wheel-gauge-needle {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.wheel-gauge-pointer {
+  fill: var(--text-primary);
+  stroke: var(--background);
+  stroke-width: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+
+.wheel-gauge-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.wheel-gauge-value {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.wheel-gauge-unit {
+  margin-left: 2px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.wheel-gauge-travel-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-height: 1.2em;
+}
+
+.wheel-gauge-travel-label[data-side='right'] {
+  color: var(--accent);
+}
+
+.wheel-gauge-travel-label[data-side='left'] {
+  color: var(--info);
+}
+
+.wheel-gauge-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
+}
+
+.pedal-meters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  height: 220px;
+  opacity: 0.45;
+  transition: opacity var(--transition);
+}
+
+.pedal-meters[data-connected='true'] {
+  opacity: 1;
+}
+
+.pedal-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pedal-value {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-height: 1.2em;
+}
+
+.pedal-col[data-tone='throttle'] .pedal-value {
+  color: #8fd18c;
+}
+
+.pedal-col[data-tone='brake'] .pedal-value {
+  color: #e39b3d;
+}
+
+.pedal-col[data-tone='clutch'] .pedal-value {
+  color: #6db3e8;
+}
+
+.pedal-track {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 42px;
+  border-radius: 3px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.pedal-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  transition: height 50ms linear;
+}
+
+.pedal-col[data-tone='throttle'] .pedal-fill {
+  background: linear-gradient(180deg, #8fd18c, #4a9a48);
+}
+
+.pedal-col[data-tone='brake'] .pedal-fill {
+  background: linear-gradient(180deg, #e39b3d, #c45a3a);
+}
+
+.pedal-col[data-tone='clutch'] .pedal-fill {
+  background: linear-gradient(180deg, #8aa3c7, #4d6284);
+}
+
+.pedal-ticks {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent 19%,
+    rgba(255, 255, 255, 0.06) 19%,
+    rgba(255, 255, 255, 0.06) 20%
+  );
+  pointer-events: none;
+}
+
+.pedal-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .effect-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .live-inputs {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .pedal-meters {
+    height: 180px;
+  }
+}

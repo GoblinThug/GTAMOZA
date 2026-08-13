@@ -1,0 +1,9 @@
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.csproj.AssemblyReference.cache
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.AssemblyInfoInputs.cache
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.AssemblyInfo.cs
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.csproj.CoreCompileInputs.cache
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\dist\GTAMOZA.dll
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\dist\GTAMOZA.pdb
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.dll
+C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.pdb

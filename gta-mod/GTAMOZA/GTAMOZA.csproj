@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>GTAMOZA</RootNamespace>
+    <AssemblyName>GTAMOZA</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>..\..\gta-mod\dist\</OutputPath>
+  </PropertyGroup>
+
+  <!-- Resolve ScriptHookVDotNet3.dll: env → libs/ (CI) → common game installs -->
+  <PropertyGroup>
+    <ShvdnDll Condition="'$(SHVDN_DLL)' != ''">$(SHVDN_DLL)</ShvdnDll>
+    <ShvdnDll Condition="'$(ShvdnDll)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\libs\ScriptHookVDotNet3.dll')">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\libs\ScriptHookVDotNet3.dll'))</ShvdnDll>
+    <ShvdnDll Condition="'$(ShvdnDll)' == '' AND Exists('E:\SteamLibrary\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll')">E:\SteamLibrary\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll</ShvdnDll>
+    <ShvdnDll Condition="'$(ShvdnDll)' == '' AND Exists('D:\Steam\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll')">D:\Steam\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll</ShvdnDll>
+    <ShvdnDll Condition="'$(ShvdnDll)' == '' AND Exists('C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll')">C:\Program Files (x86)\Steam\steamapps\common\Grand Theft Auto V Enhanced\ScriptHookVDotNet3.dll</ShvdnDll>
+  </PropertyGroup>
+
+  <Target Name="EnsureShvdn" BeforeTargets="ResolveAssemblyReferences">
+    <Error
+      Condition="'$(ShvdnDll)' == '' OR !Exists('$(ShvdnDll)')"
+      Text="ScriptHookVDotNet3.dll not found. Put it in libs/ (CI downloads nightly) or install SHVDN in GTA V Enhanced, or set SHVDN_DLL." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="ScriptHookVDotNet3">
+      <HintPath>$(ShvdnDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+</Project>

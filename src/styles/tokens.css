@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap');
+
+:root {
+  color-scheme: dark;
+  /* Rockstar-adjacent: condensed display + clean UI sans (CustomSSH clarity) */
+  --font-display: 'Oswald', 'Arial Narrow', sans-serif;
+  --font-sans: 'Barlow', 'Segoe UI', sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 72px;
+  --header-height: 52px;
+  --titlebar-height: 40px;
+  --bg-titlebar: rgba(17, 17, 17, 0.92);
+  --border-app: rgba(255, 255, 255, 0.1);
+
+  --shadow-sm: none;
+  --shadow-md: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --transition-fast: 120ms ease;
+  --transition: 180ms ease;
+}
+
+:root,
+[data-theme='dark'] {
+  /* Rockstar Games — black + R* yellow */
+  --background: #0a0a0a;
+  --background-secondary: #111111;
+  --surface: #161616;
+  --surface-hover: #1e1e1e;
+  --surface-active: #252525;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #6b6b6b;
+  --accent: #fcca00;
+  --accent-hover: #ffd84a;
+  --accent-muted: rgba(252, 202, 0, 0.14);
+  --accent-contrast: #0a0a0a;
+  --success: #3dd68c;
+  --warning: #fcca00;
+  --error: #ff453a;
+  --info: #64d2ff;
+  --overlay: rgba(0, 0, 0, 0.62);
+  --chart-line: #fcca00;
+  --chart-fill: rgba(252, 202, 0, 0.12);
+  --focus-ring: rgba(252, 202, 0, 0.5);
+  --bg-glow-a: rgba(252, 202, 0, 0.07);
+  --bg-glow-b: rgba(255, 255, 255, 0.03);
+  --panel-stripe: none;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --background: #f4f4f2;
+  --background-secondary: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f0f0ee;
+  --surface-active: #e8e8e4;
+  --border: rgba(15, 15, 15, 0.1);
+  --border-strong: rgba(15, 15, 15, 0.18);
+  --bg-titlebar: rgba(255, 255, 255, 0.92);
+  --border-app: rgba(15, 15, 15, 0.12);
+  --text-primary: #121212;
+  --text-secondary: #525252;
+  --text-muted: #7a7a7a;
+  --accent: #c9a000;
+  --accent-hover: #a88600;
+  --accent-muted: rgba(201, 160, 0, 0.12);
+  --accent-contrast: #ffffff;
+  --success: #1f8a5a;
+  --warning: #c9a000;
+  --error: #d70015;
+  --info: #0071e3;
+  --overlay: rgba(10, 10, 10, 0.4);
+  --chart-line: #c9a000;
+  --chart-fill: rgba(201, 160, 0, 0.1);
+  --focus-ring: rgba(201, 160, 0, 0.4);
+  --shadow-md: 0 18px 40px rgba(15, 15, 15, 0.1);
+  --bg-glow-a: rgba(201, 160, 0, 0.06);
+  --bg-glow-b: rgba(0, 0, 0, 0.02);
+  --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: transparent;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

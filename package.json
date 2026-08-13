@@ -1,0 +1,129 @@
+{
+  "name": "gtamoza",
+  "version": "1.0.0",
+  "description": "GTA Moza Drive — MOZA R5 force feedback control for GTA V Enhanced Story Mode",
+  "author": "Goblin_Thug",
+  "main": "dist-electron/main.js",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GoblinThug/GTAMOZA.git"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.node.json && tsc --noEmit -p tsconfig.json && vite build",
+    "build:gta-mod": "dotnet build gta-mod/GTAMOZA/GTAMOZA.csproj -c Release",
+    "build:gta-mod:dev": "dotnet build gta-mod/GTAMOZA/GTAMOZA.csproj -c Debug",
+    "build:ffb-host": "dotnet build tools/ffb-host/FfbHost.csproj -c Release",
+    "fetch:shvdn": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-shvdn.ps1",
+    "build:native": "npm run build:gta-mod && npm run build:ffb-host",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
+    "start": "electron .",
+    "pack:win": "npm run build && electron-builder --win",
+    "dist": "npm run build:native && npm run pack:win",
+    "dist:win": "npm run build:native && npm run pack:win",
+    "dist:dir": "npm run build:native && npm run build && electron-builder --win --dir",
+    "dist:publish": "npm run build:native && npm run build && electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^0.511.0",
+    "node-hid": "^3.4.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "serialport": "^13.0.0"
+  },
+  "devDependencies": {
+    "@serialport/bindings-cpp": "^13.0.1",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^34.0.2",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.goblinthug.gtamoza",
+    "productName": "GTA Moza Drive",
+    "copyright": "Copyright © Goblin_Thug",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/icon.png",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "tools/ffb-host/dist",
+        "to": "ffb-host",
+        "filter": ["gtamoza-ffb.exe", "gtamoza-ffb.dll", "*.json", "*.pdb"]
+      },
+      {
+        "from": "gta-mod/dist",
+        "to": "gta-mod",
+        "filter": ["GTAMOZA.dll"]
+      }
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-hid/**/*",
+      "**/node_modules/serialport/**/*",
+      "**/node_modules/@serialport/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "executableName": "GTA Moza Drive",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GTA Moza Drive",
+      "uninstallDisplayName": "GTA Moza Drive",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "GTAMOZA-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "GTAMOZA-Portable-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "GoblinThug",
+        "repo": "GTAMOZA",
+        "releaseType": "draft"
+      }
+    ]
+  },
+  "allowScripts": {
+    "electron@34.0.2": true,
+    "esbuild@0.25.12": true,
+    "node-hid@3.4.0": true,
+    "@serialport/bindings-cpp@13.0.1": true
+  }
+}
