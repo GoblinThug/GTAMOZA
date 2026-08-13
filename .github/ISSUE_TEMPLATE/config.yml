@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User guide
+    url: https://github.com/GoblinThug/GTAMOZA/blob/main/docs/USAGE.md
+    about: Full setup and troubleshooting before opening an issue
