@@ -68,6 +68,8 @@ export type GtaLinkStatus = {
   gameRunning: boolean
   /** Game is up but no fresh plugin telemetry — Script Hook / plugin not live. */
   pluginMissing: boolean
+  /** UDP 29755 could not be bound (another GTAMOZA instance). */
+  telemetryPortBusy: boolean
 }
 
 const TELEMETRY_PORT = 29755
@@ -110,6 +112,8 @@ let dampCmdSm = 0
 
 let lastStatusEmitAt = 0
 let lastTelemetryEmitAt = 0
+let telemetryPortBusy = false
+let telemetryBindAttempts = 0
 const STATUS_EMIT_MS = 1000
 const TELEMETRY_EMIT_MS = 50
 
@@ -152,6 +156,7 @@ export function getGtaLinkStatus(): GtaLinkStatus {
     ffbHostRunning: Boolean(ffbProc && !ffbProc.killed),
     gameRunning,
     pluginMissing: gameRunning && !connected,
+    telemetryPortBusy,
   }
 }
 
@@ -851,57 +856,80 @@ export function stopFfbHost() {
   }
 }
 
-export function initGtaTelemetryBridge() {
-  if (socket) return
-  socket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
-  socket.on('message', (msg) => {
-    try {
-      const sample = normalizeTelemetry(JSON.parse(msg.toString('utf8')))
-      if (!sample) return
-      lastTelemetry = sample
-      lastAt = Date.now()
-      // FFB first — UI IPC must never delay the force / input path
-      const { mag, parts } = computeMagnitude(sample)
-      sendFfbCommand(mag)
-      logEffectBreakdown(sample, parts)
-      emitTelemetry(sample)
-      emitStatus()
-      const now = Date.now()
-      if (now - lastMagLogAt > 1500 && (Math.abs(mag) > 200 || Math.abs(lastLoggedMag) > 200)) {
-        lastMagLogAt = now
-        lastLoggedMag = mag
-        console.log(
-          '[gta-ffb] mag=',
-          mag,
-          'v=',
-          sample.v,
-          'spd=',
-          Math.round(sample.speed * 3.6),
-          'surf=',
-          sample.surface,
-          'slip=',
-          sample.wheelSlip?.toFixed?.(2),
-          'wd=',
-          sample.wheelsDown,
-          'alive=',
-          Boolean(ffbProc && !ffbProc.killed),
-          'log=',
-          getFfbEffectLogPath() ? 'on' : 'off',
-        )
-      }
-    } catch {
-      /* ignore bad packets */
-    }
-  })
-  socket.on('error', (err) => {
-    console.warn('[gta-telemetry]', err.message)
-    if (String(err.message).includes('EADDRINUSE')) {
-      console.warn(
-        '[gta-telemetry] port 29755 busy — close other GTA Moza Drive / Electron instances, then restart this app',
+function onTelemetryMessage(msg: Buffer) {
+  try {
+    const sample = normalizeTelemetry(JSON.parse(msg.toString('utf8')))
+    if (!sample) return
+    lastTelemetry = sample
+    lastAt = Date.now()
+    telemetryPortBusy = false
+    // FFB first — UI IPC must never delay the force / input path
+    const { mag, parts } = computeMagnitude(sample)
+    sendFfbCommand(mag)
+    logEffectBreakdown(sample, parts)
+    emitTelemetry(sample)
+    emitStatus()
+    const now = Date.now()
+    if (now - lastMagLogAt > 1500 && (Math.abs(mag) > 200 || Math.abs(lastLoggedMag) > 200)) {
+      lastMagLogAt = now
+      lastLoggedMag = mag
+      console.log(
+        '[gta-ffb] mag=',
+        mag,
+        'v=',
+        sample.v,
+        'spd=',
+        Math.round(sample.speed * 3.6),
+        'surf=',
+        sample.surface,
+        'slip=',
+        sample.wheelSlip?.toFixed?.(2),
+        'wd=',
+        sample.wheelsDown,
+        'alive=',
+        Boolean(ffbProc && !ffbProc.killed),
+        'log=',
+        getFfbEffectLogPath() ? 'on' : 'off',
       )
     }
+  } catch {
+    /* ignore bad packets */
+  }
+}
+
+function bindTelemetrySocket() {
+  try {
+    socket?.close()
+  } catch {
+    /* ignore */
+  }
+  socket = dgram.createSocket({ type: 'udp4', reuseAddr: false })
+  socket.on('message', onTelemetryMessage)
+  socket.on('error', (err) => {
+    console.warn('[gta-telemetry]', err.message)
+    if (!String(err.message).includes('EADDRINUSE')) return
+    telemetryPortBusy = true
+    emitStatus(true)
+    if (telemetryBindAttempts < 12) {
+      telemetryBindAttempts += 1
+      setTimeout(() => bindTelemetrySocket(), 250)
+      return
+    }
+    console.warn(
+      '[gta-telemetry] port 29755 busy — close other GTA Moza Drive / Electron instances, then restart this app',
+    )
   })
-  socket.bind({ port: TELEMETRY_PORT, address: '127.0.0.1', exclusive: false })
+  socket.bind({ port: TELEMETRY_PORT, address: '127.0.0.1', exclusive: true }, () => {
+    telemetryPortBusy = false
+    telemetryBindAttempts = 0
+    console.log('[gta-telemetry] listening 127.0.0.1:29755')
+    emitStatus(true)
+  })
+}
+
+export function initGtaTelemetryBridge() {
+  if (socket) return
+  bindTelemetrySocket()
 
   // Host is started from profile sync via setFfbHostEnabled(ffb.enabled)
 
@@ -942,9 +970,19 @@ export function disposeGtaTelemetryBridge() {
 }
 
 export function resolvePluginDll(): string | null {
+  // Packaged: only extraResources. Never pick a random cwd/gta-mod/dist
+  // (launching the installed exe from the repo would steal the dev DLL).
+  if (app.isPackaged) {
+    const packaged = path.join(process.resourcesPath, 'gta-mod', 'GTAMOZA.dll')
+    try {
+      if (fs.existsSync(packaged) && fs.statSync(packaged).isFile()) return packaged
+    } catch {
+      /* ignore */
+    }
+    return null
+  }
+
   const candidates = [
-    // Packaged: extraResources → resources/gta-mod/
-    path.join(process.resourcesPath, 'gta-mod', 'GTAMOZA.dll'),
     path.join(app.getAppPath(), 'gta-mod', 'dist', 'GTAMOZA.dll'),
     path.join(__dirname, '..', '..', 'gta-mod', 'dist', 'GTAMOZA.dll'),
     path.join(process.cwd(), 'gta-mod', 'dist', 'GTAMOZA.dll'),

@@ -38,6 +38,8 @@ export type GtaStatus = {
   /** Process up but plugin UDP missing */
   pluginMissing?: boolean
   gameRunning?: boolean
+  /** Another GTAMOZA instance owns UDP 29755 */
+  telemetryPortBusy?: boolean
 }
 
 export type TelemetrySample = {

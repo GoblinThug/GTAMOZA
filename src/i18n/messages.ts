@@ -126,6 +126,8 @@ const en = {
   'dashboard.linkGta': 'GTA Story Mode',
   'dashboard.linkGtaOn': 'Connected',
   'dashboard.linkGtaOff': 'Not connected',
+  'dashboard.linkGtaPortBusy':
+    'Another GTA Moza Drive is already running (including npm run dev). Close it, then reopen this app.',
   'dashboard.linkGtaPluginMissing':
     'GTA is running, but the plugin did not load. Quit fully and use Settings → Launch Story Mode (no BattlEye). Steam/Epic/Rockstar each need BattlEye off for mods.',
   'dashboard.waitBadge': 'Start Story Mode with GTAMOZA enabled in Settings.',
@@ -528,6 +530,8 @@ const ru: Record<MessageKey, string> = {
   'dashboard.linkGta': 'GTA Story Mode',
   'dashboard.linkGtaOn': 'Подключена',
   'dashboard.linkGtaOff': 'Нет связи',
+  'dashboard.linkGtaPortBusy':
+    'Уже запущено другое окно GTA Moza Drive (в том числе npm run dev). Закрой его и открой это приложение снова.',
   'dashboard.linkGtaPluginMissing':
     'GTA запущена, но плагин не загрузился. Закрой игру и жми в Настройках «Запуск Story Mode (без BattlEye)». На Steam/Epic/Rockstar для модов BattlEye должен быть выключен.',
   'dashboard.waitBadge': 'Запусти Story Mode — перед этим включи GTAMOZA в Настройках.',

@@ -1,6 +1,6 @@
 {
   "name": "gtamoza",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "GTA Moza Drive — force feedback for MOZA wheel bases (R3/R5/R9/…) in GTA V Enhanced Story Mode",
   "author": "Goblin_Thug",
   "main": "dist-electron/main.js",
@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.node.json && tsc --noEmit -p tsconfig.json && vite build",
-    "build:gta-mod": "dotnet build gta-mod/GTAMOZA/GTAMOZA.csproj -c Release",
+    "build:gta-mod": "dotnet build gta-mod/GTAMOZA/GTAMOZA.csproj -c Debug",
     "build:gta-mod:dev": "dotnet build gta-mod/GTAMOZA/GTAMOZA.csproj -c Debug",
     "build:ffb-host": "dotnet build tools/ffb-host/FfbHost.csproj -c Release",
     "fetch:shvdn": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-shvdn.ps1",
@@ -20,7 +20,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
     "start": "electron .",
-    "pack:win": "npm run build && electron-builder --win",
+    "pack:win": "node scripts/check-native-resources.js && npm run build && electron-builder --win",
     "dist": "npm run build:native && npm run pack:win",
     "dist:win": "npm run build:native && npm run pack:win",
     "dist:dir": "npm run build:native && npm run build && electron-builder --win --dir",

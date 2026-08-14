@@ -298,57 +298,70 @@ function applyNativeTheme(theme: AppSettings['theme']) {
 }
 
 app.setName(APP_DISPLAY_NAME)
+app.setAppUserModelId('com.goblinthug.gtamoza')
 
-app.whenReady().then(() => {
-  // Drop the default File / Edit / View menu bar (CustomSSH-style chrome).
-  Menu.setApplicationMenu(null)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
 
-  const settings = loadSettings()
-  applyNativeTheme(settings.theme)
-  registerIpc()
-  initMozaBridge()
-  initGtaTelemetryBridge()
-  setMozaPedalAxisMap(settings.pedalAxisMap)
-  setMozaPedalFloors(settings.pedalFloors)
-  syncMozaFromSelectedProfile()
-  // Remember detected Enhanced path so Settings works offline of Steam defaults
-  if (!settings.gtaGamePath) {
-    const detected = resolveGtaPath(null)
-    if (detected) saveSettings({ gtaGamePath: detected })
-  }
-  const gamePath = resolveGtaPath(loadSettings().gtaGamePath)
-  if (gamePath) {
-    try {
-      syncPluginIntoGame(gamePath)
-    } catch (err) {
-      console.warn('[gta] plugin sync on startup failed', err)
+  app.whenReady().then(() => {
+    // Drop the default File / Edit / View menu bar (CustomSSH-style chrome).
+    Menu.setApplicationMenu(null)
+
+    const settings = loadSettings()
+    applyNativeTheme(settings.theme)
+    registerIpc()
+    initMozaBridge()
+    initGtaTelemetryBridge()
+    setMozaPedalAxisMap(settings.pedalAxisMap)
+    setMozaPedalFloors(settings.pedalFloors)
+    syncMozaFromSelectedProfile()
+    // Remember detected Enhanced path so Settings works offline of Steam defaults
+    if (!settings.gtaGamePath) {
+      const detected = resolveGtaPath(null)
+      if (detected) saveSettings({ gtaGamePath: detected })
     }
-  }
-  createWindow()
-  initAutoUpdater({ autoCheck: settings.autoUpdates })
-
-  nativeTheme.on('updated', () => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send('theme:systemChanged', {
-          shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
-        })
+    const gamePath = resolveGtaPath(loadSettings().gtaGamePath)
+    if (gamePath) {
+      try {
+        syncPluginIntoGame(gamePath)
+      } catch (err) {
+        console.warn('[gta] plugin sync on startup failed', err)
       }
     }
+    createWindow()
+    initAutoUpdater({ autoCheck: settings.autoUpdates })
+
+    nativeTheme.on('updated', () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) {
+          win.webContents.send('theme:systemChanged', {
+            shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+          })
+        }
+      }
+    })
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  app.on('before-quit', () => {
+    disposeGtaTelemetryBridge()
+    disposeMozaBridge()
   })
-})
 
-app.on('before-quit', () => {
-  disposeGtaTelemetryBridge()
-  disposeMozaBridge()
-})
-
-app.on('window-all-closed', () => {
-  disposeGtaTelemetryBridge()
-  disposeMozaBridge()
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.on('window-all-closed', () => {
+    disposeGtaTelemetryBridge()
+    disposeMozaBridge()
+    if (process.platform !== 'darwin') app.quit()
+  })
+}

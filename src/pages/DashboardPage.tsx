@@ -187,6 +187,8 @@ export function DashboardPage() {
                 {t('dashboard.storyMode')}
                 {gta.vehicle && gta.vehicle !== '—' ? ` · ${gta.vehicle}` : ''}
               </p>
+            ) : gta.telemetryPortBusy ? (
+              <p className="link-status-meta">{t('dashboard.linkGtaPortBusy')}</p>
             ) : gta.pluginMissing ? (
               <p className="link-status-meta">{t('dashboard.linkGtaPluginMissing')}</p>
             ) : (

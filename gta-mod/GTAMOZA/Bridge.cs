@@ -399,21 +399,19 @@ namespace GTAMOZA
 
                 if (_indNativeMode == 1)
                 {
-                    // Enhanced: SHVDN true/false is visually swapped vs property names
-                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, true, rightLit);
-                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, false, leftLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, true, leftLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, false, rightLit);
                     try
                     {
-                        veh.IsLeftIndicatorLightOn = rightLit;
-                        veh.IsRightIndicatorLightOn = leftLit;
+                        veh.IsLeftIndicatorLightOn = leftLit;
+                        veh.IsRightIndicatorLightOn = rightLit;
                     }
                     catch { }
                 }
                 else
                 {
-                    // FiveM docs say 0=L,1=R — on Enhanced that pair is also swapped
-                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, rightLit);
-                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, leftLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 0, leftLit);
+                    Function.Call(Hash.SET_VEHICLE_INDICATOR_LIGHTS, handle, 1, rightLit);
                 }
 
                 if (_indNativeBroken && (wantL || wantR))

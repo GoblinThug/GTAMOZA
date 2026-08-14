@@ -1021,16 +1021,16 @@ Write-Output 'OK'
  * Copy the built GTAMOZA.dll into the game and hot-reload SHVDN scripts
  * (F11) so you do not need to restart GTA.
  */
-/** Debug = Home/PgUp cheats; Release = stripped (used by npm run build:gta-mod / dist). */
+/** Packaged app ships extraResources DLL — never rebuild from a random cwd. */
 async function rebuildPluginDll(): Promise<void> {
+  if (app.isPackaged) throw new Error('plugin_project_missing')
   const csproj = path.join(app.getAppPath(), 'gta-mod', 'GTAMOZA', 'GTAMOZA.csproj')
   const alt = path.join(process.cwd(), 'gta-mod', 'GTAMOZA', 'GTAMOZA.csproj')
   const project = fs.existsSync(csproj) ? csproj : alt
   if (!fs.existsSync(project)) throw new Error('plugin_project_missing')
-  const config = app.isPackaged ? 'Release' : 'Debug'
   await execFileAsync(
     'dotnet',
-    ['build', project, '-c', config, '--nologo', '-v', 'q'],
+    ['build', project, '-c', 'Debug', '--nologo', '-v', 'q'],
     { windowsHide: true, timeout: 120_000 },
   )
 }

@@ -10,6 +10,7 @@ type GtaLinkStatus = {
   ffbHostRunning: boolean
   gameRunning?: boolean
   pluginMissing?: boolean
+  telemetryPortBusy?: boolean
 }
 
 function fromLink(link: GtaLinkStatus): GtaStatus {
@@ -19,6 +20,7 @@ function fromLink(link: GtaLinkStatus): GtaStatus {
     vehicle: link.connected && link.vehicle ? link.vehicle : '—',
     gameRunning: Boolean(link.gameRunning),
     pluginMissing: Boolean(link.pluginMissing),
+    telemetryPortBusy: Boolean(link.telemetryPortBusy),
   }
 }
 
@@ -36,7 +38,8 @@ export class ElectronGtaService implements GtaService {
           next.mode === this.last.mode &&
           next.vehicle === this.last.vehicle &&
           next.gameRunning === this.last.gameRunning &&
-          next.pluginMissing === this.last.pluginMissing
+          next.pluginMissing === this.last.pluginMissing &&
+          next.telemetryPortBusy === this.last.telemetryPortBusy
         ) {
           return
         }

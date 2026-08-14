@@ -4,7 +4,5 @@ C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\G
 C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.AssemblyInfo.cs
 C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.csproj.CoreCompileInputs.cache
 C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\dist\GTAMOZA.dll
-C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\dist\GTAMOZA.pdb
 C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.dll
-C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.pdb
 C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\obj\Debug\GTAMOZA.sourcelink.json
