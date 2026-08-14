@@ -92,6 +92,8 @@ const en = {
   'cheats.policeHint': 'Wanted level cleared; cops ignore you.',
   'cheats.spawn': 'Spawn random car',
   'cheats.spawnHint': 'Spawns a random vehicle and puts you in the driver seat.',
+  'cheats.time': 'Time of day',
+  'cheats.timeHint': 'Each press cycles morning → day → evening → night → midnight.',
   'cheats.pressKey': 'Press a key…',
   'cheats.saved': 'Cheats updated',
 
@@ -492,6 +494,8 @@ const ru: Record<MessageKey, string> = {
   'cheats.policeHint': 'Розыск сбрасывается, копы игнорируют.',
   'cheats.spawn': 'Случайная машина',
   'cheats.spawnHint': 'Спавн случайного авто и посадка за руль.',
+  'cheats.time': 'Время суток',
+  'cheats.timeHint': 'Каждое нажатие: утро → день → вечер → ночь → полночь.',
   'cheats.pressKey': 'Нажмите клавишу…',
   'cheats.saved': 'Читы обновлены',
 

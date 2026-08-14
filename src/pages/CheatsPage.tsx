@@ -106,6 +106,15 @@ export function CheatsPage() {
                 void save({ ...cheats, spawnCar })
               }}
             />
+            <FeatureRow
+              title={t('cheats.time')}
+              hint={t('cheats.timeHint')}
+              feature={cheats.timeOfDay}
+              disabled={false}
+              onChange={(timeOfDay) => {
+                void save({ ...cheats, timeOfDay })
+              }}
+            />
           </div>
         </Card>
       ) : null}

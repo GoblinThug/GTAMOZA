@@ -949,8 +949,20 @@ export function resolvePluginDll(): string | null {
     path.join(__dirname, '..', '..', 'gta-mod', 'dist', 'GTAMOZA.dll'),
     path.join(process.cwd(), 'gta-mod', 'dist', 'GTAMOZA.dll'),
   ]
+  let best: { file: string; mtime: number } | null = null
+  const seen = new Set<string>()
   for (const c of candidates) {
-    if (fs.existsSync(c)) return c
+    const resolved = path.resolve(c)
+    if (seen.has(resolved)) continue
+    seen.add(resolved)
+    try {
+      if (!fs.existsSync(resolved)) continue
+      const st = fs.statSync(resolved)
+      if (!st.isFile()) continue
+      if (!best || st.mtimeMs > best.mtime) best = { file: resolved, mtime: st.mtimeMs }
+    } catch {
+      /* ignore */
+    }
   }
-  return null
+  return best?.file ?? null
 }

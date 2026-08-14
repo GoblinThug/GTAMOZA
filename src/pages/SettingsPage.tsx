@@ -188,7 +188,7 @@ export function SettingsPage() {
               <div className="gta-mode-actions">
                 <Button
                   variant="primary"
-                  disabled={gtaBusy || !gta?.validGame || storyOn}
+                  disabled={gtaBusy || !gta?.validGame || !gta?.canEnable}
                   onClick={() => {
                     if (!gta?.hasScriptHook || !gta?.hasDotNet) {
                       toast.push({
@@ -218,7 +218,9 @@ export function SettingsPage() {
                             title:
                               err === 'already_running'
                                 ? t('settings.gta.toastLaunchRunning')
-                                : t('settings.gta.toastLaunchFailed', { error: err }),
+                                : err === 'plugin_missing'
+                                  ? t('settings.gta.toastPluginMissing')
+                                  : t('settings.gta.toastLaunchFailed', { error: err }),
                             tone: 'error',
                           })
                           return

@@ -22,6 +22,7 @@ import {
   openGtaHookHelp,
   pickGtaGameFolder,
   resolveGtaPath,
+  syncPluginIntoGame,
   uninstallGtaIntegration,
 } from './gta/mod-manager'
 import {
@@ -314,6 +315,14 @@ app.whenReady().then(() => {
   if (!settings.gtaGamePath) {
     const detected = resolveGtaPath(null)
     if (detected) saveSettings({ gtaGamePath: detected })
+  }
+  const gamePath = resolveGtaPath(loadSettings().gtaGamePath)
+  if (gamePath) {
+    try {
+      syncPluginIntoGame(gamePath)
+    } catch (err) {
+      console.warn('[gta] plugin sync on startup failed', err)
+    }
   }
   createWindow()
   initAutoUpdater({ autoCheck: settings.autoUpdates })

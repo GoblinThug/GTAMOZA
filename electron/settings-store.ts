@@ -125,6 +125,7 @@ function normalizeCheats(raw: Partial<CheatsSettings> | null | undefined): Cheat
     godMode: normalizeFeature(raw?.godMode, DEFAULT_CHEATS.godMode),
     noPolice: normalizeFeature(raw?.noPolice, DEFAULT_CHEATS.noPolice),
     spawnCar: normalizeFeature(raw?.spawnCar, DEFAULT_CHEATS.spawnCar),
+    timeOfDay: normalizeFeature(raw?.timeOfDay, DEFAULT_CHEATS.timeOfDay),
   }
 }
 

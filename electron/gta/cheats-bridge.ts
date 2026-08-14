@@ -11,9 +11,11 @@ export function writeCheatsConfig(cheats: CheatsSettings) {
     godEnabled: Boolean(cheats?.godMode?.enabled),
     copsEnabled: Boolean(cheats?.noPolice?.enabled),
     spawnEnabled: Boolean(cheats?.spawnCar?.enabled),
+    timeEnabled: Boolean(cheats?.timeOfDay?.enabled),
     godHotkey: String(cheats?.godMode?.hotkey || 'Home'),
     copsHotkey: String(cheats?.noPolice?.hotkey || 'End'),
     spawnHotkey: String(cheats?.spawnCar?.hotkey || 'PageUp'),
+    timeHotkey: String(cheats?.timeOfDay?.hotkey || 'Oemplus'),
   }
   try {
     fs.writeFileSync(file, JSON.stringify(body), 'utf8')

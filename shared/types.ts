@@ -139,6 +139,7 @@ export type CheatsSettings = {
   godMode: CheatFeatureSettings
   noPolice: CheatFeatureSettings
   spawnCar: CheatFeatureSettings
+  timeOfDay: CheatFeatureSettings
 }
 
 export const DEFAULT_CHEATS: CheatsSettings = {
@@ -146,6 +147,7 @@ export const DEFAULT_CHEATS: CheatsSettings = {
   godMode: { enabled: true, hotkey: 'Home' },
   noPolice: { enabled: true, hotkey: 'End' },
   spawnCar: { enabled: true, hotkey: 'PageUp' },
+  timeOfDay: { enabled: true, hotkey: 'Oemplus' },
 }
 
 export type AppSettings = {

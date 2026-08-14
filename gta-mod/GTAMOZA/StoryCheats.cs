@@ -9,13 +9,19 @@ using UiScreen = GTA.UI.Screen;
 namespace GTAMOZA
 {
     /// <summary>
-    /// Optional Story Mode helpers (god / no police / spawn car).
+    /// Optional Story Mode helpers (god / no police / spawn car / time of day).
     /// Controlled by %TEMP%\gtamoza_cheats.json from the GTAMOZA app — off by default.
     /// </summary>
     public class StoryCheats : Script
     {
         static readonly string ConfigPath =
             Path.Combine(Path.GetTempPath(), "gtamoza_cheats.json");
+
+        static readonly int[] TimeHours = { 6, 12, 18, 22, 0 };
+        static readonly string[] TimeLabels =
+        {
+            "Morning", "Day", "Evening", "Night", "Midnight",
+        };
 
         bool _godOn;
         bool _noCopsOn;
@@ -25,9 +31,12 @@ namespace GTAMOZA
         bool _godEnabled = true;
         bool _copsEnabled = true;
         bool _spawnEnabled = true;
+        bool _timeEnabled = true;
         Keys _godKey = Keys.Home;
         Keys _copsKey = Keys.End;
         Keys _spawnKey = Keys.PageUp;
+        Keys _timeKey = Keys.Oemplus;
+        int _timeSlot = -1;
 
         static readonly VehicleHash[] Cars =
         {
@@ -105,7 +114,13 @@ namespace GTAMOZA
             }
 
             if (_spawnEnabled && e.KeyCode == _spawnKey)
+            {
                 SpawnRandomCar();
+                return;
+            }
+
+            if (_timeEnabled && e.KeyCode == _timeKey)
+                CycleTimeOfDay();
         }
 
         void ClearGod()
@@ -162,6 +177,20 @@ namespace GTAMOZA
             catch { /* ignore */ }
         }
 
+        void CycleTimeOfDay()
+        {
+            try
+            {
+                _timeSlot = (_timeSlot + 1) % TimeHours.Length;
+                int hour = TimeHours[_timeSlot];
+                Function.Call(Hash.SET_CLOCK_TIME, hour, 0, 0);
+                UiScreen.ShowSubtitle(
+                    "~y~" + TimeLabels[_timeSlot] + "~s~  " + hour.ToString("00") + ":00",
+                    1800);
+            }
+            catch { /* ignore */ }
+        }
+
         void CleanupSpawn()
         {
             try
@@ -191,9 +220,11 @@ namespace GTAMOZA
                 _godEnabled = ReadBool(json, "godEnabled", true);
                 _copsEnabled = ReadBool(json, "copsEnabled", true);
                 _spawnEnabled = ReadBool(json, "spawnEnabled", true);
+                _timeEnabled = ReadBool(json, "timeEnabled", true);
                 _godKey = ParseKey(ReadString(json, "godHotkey", "Home"), Keys.Home);
                 _copsKey = ParseKey(ReadString(json, "copsHotkey", "End"), Keys.End);
                 _spawnKey = ParseKey(ReadString(json, "spawnHotkey", "PageUp"), Keys.PageUp);
+                _timeKey = ParseKey(ReadString(json, "timeHotkey", "Oemplus"), Keys.Oemplus);
 
                 if (!_masterEnabled)
                 {

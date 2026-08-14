@@ -34,8 +34,19 @@ export function eventToWinFormsKey(e: KeyboardEvent): string | null {
     Numpad7: 'NumPad7',
     Numpad8: 'NumPad8',
     Numpad9: 'NumPad9',
+    Equal: 'Oemplus',
+    Minus: 'OemMinus',
+    NumpadAdd: 'Add',
+    NumpadSubtract: 'Subtract',
   }
   return map[code] ?? null
+}
+
+const HOTKEY_LABELS: Record<string, string> = {
+  Oemplus: '=',
+  OemMinus: '-',
+  Add: 'Num+',
+  Subtract: 'Num-',
 }
 
 type Props = {
@@ -76,7 +87,7 @@ export function HotkeyCapture({ value, disabled, onChange }: Props) {
         if (!disabled) setListening(true)
       }}
     >
-      {listening ? t('cheats.pressKey') : value || '—'}
+      {listening ? t('cheats.pressKey') : HOTKEY_LABELS[value] || value || '—'}
     </button>
   )
 }

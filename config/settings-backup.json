@@ -230,7 +230,8 @@
       "enabled": true,
       "godMode": { "enabled": true, "hotkey": "Home" },
       "noPolice": { "enabled": true, "hotkey": "End" },
-      "spawnCar": { "enabled": true, "hotkey": "PageUp" }
+      "spawnCar": { "enabled": true, "hotkey": "PageUp" },
+      "timeOfDay": { "enabled": true, "hotkey": "Oemplus" }
     },
     "onboardingCompleted": true
   }

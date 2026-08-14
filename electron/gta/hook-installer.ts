@@ -319,6 +319,7 @@ export function hooksMissingInGame(gamePath: string): boolean {
   return (
     !exists(path.join(gamePath, 'xinput1_4.dll')) ||
     !exists(path.join(gamePath, 'ScriptHookV.dll')) ||
-    !exists(path.join(gamePath, 'ScriptHookVDotNet.asi'))
+    !exists(path.join(gamePath, 'ScriptHookVDotNet.asi')) ||
+    !exists(path.join(gamePath, 'ScriptHookVDotNet3.dll'))
   )
 }

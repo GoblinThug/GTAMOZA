@@ -183,22 +183,73 @@ function listParkedHooks(gamePath: string): string[] {
   return HOOK_REL_PATHS.filter((rel) => exists(path.join(root, rel)))
 }
 
+function filesIdentical(a: string, b: string): boolean {
+  try {
+    const sa = fs.statSync(a)
+    const sb = fs.statSync(b)
+    if (sa.size !== sb.size) return false
+    return fs.readFileSync(a).equals(fs.readFileSync(b))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Copy the app's GTAMOZA.dll into scripts/, replacing a stale/parked copy.
+ * Skips the write when the live file already matches (avoids lock errors).
+ */
+function copyPluginDll(gamePath: string) {
+  const dllSrc = resolvePluginDll()
+  if (!dllSrc) throw new Error('plugin_missing')
+  ensureDir(path.join(gamePath, 'scripts'))
+  const dllDest = path.join(gamePath, OUR_PLUGIN_DLL)
+  if (exists(dllDest) && filesIdentical(dllSrc, dllDest)) return
+
+  try {
+    fs.copyFileSync(dllSrc, dllDest)
+    return
+  } catch (err) {
+    const tmp = `${dllDest}.new`
+    try {
+      fs.copyFileSync(dllSrc, tmp)
+      fs.rmSync(dllDest, { force: true })
+      fs.renameSync(tmp, dllDest)
+    } catch (err2) {
+      try {
+        fs.rmSync(tmp, { force: true })
+      } catch {
+        /* ignore */
+      }
+      throw err2 instanceof Error ? err2 : err
+    }
+  }
+}
+
+async function copyPluginDllWithRetry(gamePath: string): Promise<void> {
+  let lastErr: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      copyPluginDll(gamePath)
+      return
+    } catch (err) {
+      lastErr = err
+      await trySendShvdnReloadKey()
+      await sleep(attempt === 0 ? 700 : 900)
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('copy_failed')
+}
+
 function installOurPlugin(gamePath: string): string[] {
   const created: string[] = []
-  ensureDir(path.join(gamePath, 'scripts'))
-
-  const dllSrc = resolvePluginDll()
-  if (!dllSrc) {
-    throw new Error('plugin_missing')
-  }
-  const dllDest = path.join(gamePath, OUR_PLUGIN_DLL)
-  fs.copyFileSync(dllSrc, dllDest)
+  copyPluginDll(gamePath)
   created.push(OUR_PLUGIN_DLL)
 
   const dir = path.join(gamePath, OUR_PLUGIN_DIR)
   ensureDir(dir)
   created.push(OUR_PLUGIN_DIR)
 
+  const dllSrc = resolvePluginDll()
   const marker = path.join(dir, 'installed.json')
   fs.writeFileSync(
     marker,
@@ -207,6 +258,7 @@ function installOurPlugin(gamePath: string): string[] {
         app: 'GTAMOZA',
         installedAt: new Date().toISOString(),
         dll: OUR_PLUGIN_DLL,
+        source: dllSrc,
         telemetryUdp: 29755,
       },
       null,
@@ -234,6 +286,19 @@ function installOurPlugin(gamePath: string): string[] {
   )
   created.push(path.join(OUR_PLUGIN_DIR, 'README.txt'))
   return created
+}
+
+/**
+ * Keep scripts/GTAMOZA.dll in sync with the app build.
+ * No-op when Story Mode is parked (Online-safe) or the folder is invalid.
+ */
+export function syncPluginIntoGame(gamePath: string): void {
+  if (!isValidGameDir(gamePath)) return
+  const status = buildStatus(gamePath)
+  if (status.state === 'parked') return
+  // Only auto-copy when Story Mode hooks are actually in the game folder.
+  if (status.state !== 'enabled' && !status.hasAsiLoader) return
+  installOurPlugin(gamePath)
 }
 
 function buildStatus(gamePath: string | null): GtaModStatus {
@@ -274,6 +339,7 @@ function buildStatus(gamePath: string | null): GtaModStatus {
   const enabled =
     hasEnhancedLoader &&
     hasScriptHook &&
+    hasDotNet &&
     hasOurPluginLive &&
     !parkedMode
 
@@ -319,8 +385,8 @@ function buildStatus(gamePath: string | null): GtaModStatus {
     hooksParked: hooksParked.length > 0,
     store: detectGtaStore(gamePath),
     message,
-    // Clickable whenever the game folder is valid; enable() returns hooks_missing if needed.
-    canEnable: state !== 'enabled',
+    // Always re-runnable: Enable also refreshes GTAMOZA.dll when Story Mode is already ON.
+    canEnable: true,
     canDisable: state === 'enabled' || (hasAsiLoader && hasOurPlugin),
     canUninstall:
       Boolean(manifest) ||
@@ -455,10 +521,15 @@ export async function enableGtaIntegration(gamePath: string): Promise<GtaModResu
       const dest = path.join(gamePath, rel)
       if (exists(src)) moveFile(src, dest)
     }
-    // Restore parked plugin dll + folder
+    // Parked plugin folder (readme/marker) can come back; the DLL is always
+    // taken from the app build below so a stale parked copy cannot win.
     const parkedDll = path.join(parkedRoot(gamePath), OUR_PLUGIN_DLL)
     if (exists(parkedDll)) {
-      moveFile(parkedDll, path.join(gamePath, OUR_PLUGIN_DLL))
+      if (resolvePluginDll()) {
+        fs.rmSync(parkedDll, { force: true })
+      } else {
+        moveFile(parkedDll, path.join(gamePath, OUR_PLUGIN_DLL))
+      }
     }
     const parkedPlugin = path.join(parkedRoot(gamePath), OUR_PLUGIN_DIR)
     if (exists(parkedPlugin)) {
@@ -483,7 +554,12 @@ export async function enableGtaIntegration(gamePath: string): Promise<GtaModResu
     }
 
     const present = listPresentHooks(gamePath)
-    if (!present.includes('xinput1_4.dll') || !present.includes('ScriptHookV.dll')) {
+    if (
+      !present.includes('xinput1_4.dll') ||
+      !present.includes('ScriptHookV.dll') ||
+      !present.includes('ScriptHookVDotNet.asi') ||
+      !present.includes('ScriptHookVDotNet3.dll')
+    ) {
       return {
         ok: false,
         status: buildStatus(gamePath),
@@ -493,7 +569,14 @@ export async function enableGtaIntegration(gamePath: string): Promise<GtaModResu
 
     ensureShvdnReloadKeyF11(gamePath)
 
-    const created = installOurPlugin(gamePath)
+    let created: string[]
+    try {
+      created = installOurPlugin(gamePath)
+    } catch (err) {
+      console.warn('[gta] plugin copy locked, retrying after SHVDN unload', err)
+      await copyPluginDllWithRetry(gamePath)
+      created = installOurPlugin(gamePath)
+    }
     const prev = readManifest(gamePath)
     writeManifest(gamePath, {
       version: 1,
@@ -789,6 +872,15 @@ export function launchGtaStoryNoBattlEye(gamePath: string): GtaLaunchResult {
     return { ok: false, error: 'already_running', store: detectGtaStore(gamePath) }
   }
 
+  try {
+    syncPluginIntoGame(gamePath)
+  } catch (err) {
+    console.warn('[gta] plugin sync before launch failed', err)
+    if (!exists(path.join(gamePath, OUR_PLUGIN_DLL))) {
+      return { ok: false, error: 'plugin_missing', store: detectGtaStore(gamePath) }
+    }
+  }
+
   const store = detectGtaStore(gamePath)
 
   try {
@@ -925,14 +1017,6 @@ Write-Output 'OK'
   }
 }
 
-function copyPluginDll(gamePath: string) {
-  const dllSrc = resolvePluginDll()
-  if (!dllSrc) throw new Error('plugin_missing')
-  ensureDir(path.join(gamePath, 'scripts'))
-  const dllDest = path.join(gamePath, OUR_PLUGIN_DLL)
-  fs.copyFileSync(dllSrc, dllDest)
-}
-
 /**
  * Copy the built GTAMOZA.dll into the game and hot-reload SHVDN scripts
  * (F11) so you do not need to restart GTA.
@@ -978,18 +1062,9 @@ export async function hotReloadGtaPlugin(gamePath: string): Promise<GtaHotReload
       console.warn('[gta] plugin rebuild skipped/failed', err)
     }
 
-    let copied = false
-    for (let attempt = 0; attempt < 3 && !copied; attempt++) {
-      try {
-        copyPluginDll(gamePath)
-        copied = true
-      } catch {
-        await trySendShvdnReloadKey()
-        await sleep(900)
-      }
-    }
-
-    if (!copied) {
+    try {
+      await copyPluginDllWithRetry(gamePath)
+    } catch {
       return { ok: false, status: buildStatus(gamePath), error: 'copy_failed' }
     }
 
