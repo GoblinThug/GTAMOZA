@@ -1,4 +1,4 @@
-<p align="center">
+<p align="center"> 
   <img src="build/icon.png" alt="GTA Moza Drive" width="120" />
 </p>
 
