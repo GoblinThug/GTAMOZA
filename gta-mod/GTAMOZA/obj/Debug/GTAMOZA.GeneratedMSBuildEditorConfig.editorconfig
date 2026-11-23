@@ -1,5 +1,8 @@
 is_global = true
 build_property.RootNamespace = GTAMOZA
-build_property.ProjectDir = C:\Users\gobli\Desktop\Projects\MozaSupport for GTAV\gta-mod\GTAMOZA\
+build_property.ProjectDir = C:\Users\gobli\Desktop\Projects\GTAMOZA\gta-mod\GTAMOZA\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 

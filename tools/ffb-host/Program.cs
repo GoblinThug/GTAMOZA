@@ -349,9 +349,18 @@ static class Program
                         lastBeat = DateTime.UtcNow;
                     }
 
-                    // Stale game effects only — keep mechanical filters alive
-                    if ((DateTime.UtcNow - lastBeat).TotalMilliseconds > 450)
+                    // No fresh telemetry (GTA closed / plugin dead) — mute game + column.
+                    // Otherwise friction/damper amplify DI noise → idle rim buzz.
+                    bool telemLive = (DateTime.UtcNow - lastBeat).TotalMilliseconds <= 500;
+                    if (!telemLive)
+                    {
                         gameMag = 0;
+                        centerGain = 0;
+                        dampGain = 0;
+                        frictionGain = 0;
+                        inertiaGain = 0;
+                        springSm *= 0.65;
+                    }
 
                     // MOZA-style stack: game mag + SAT spring + damper + friction + inertia
                     // "Falls off center" fix: stronger notch near 0, friction must NOT fight return.
@@ -362,17 +371,22 @@ static class Program
                     double turnRate = Math.Abs(dNorm);
                     double absN = Math.Abs(norm);
                     double flickEase = 1.0 - Math.Min(0.25, turnRate * 14.0);
-                    // Slightly heavier column (spring/damp/friction/inertia).
+                    // Column only when app sends non-zero gains (muted = all quiet / no GTA).
                     double centerNotch = 1.0 + (1.0 - Math.Min(1.0, absN / 0.22)) * 0.12;
                     double springTarget =
-                        -norm * (1100 + 3600 * centerGain) * flickEase * centerNotch;
-                    springSm += (springTarget - springSm) * 0.15;
+                        centerGain < 0.001
+                            ? 0.0
+                            : -norm * (1200 + 4200 * centerGain) * flickEase * centerNotch;
+                    springSm += (springTarget - springSm) * (centerGain < 0.001 ? 0.4 : 0.15);
                     double centerDamp = 1.0 + (1.0 - Math.Min(1.0, absN / 0.14)) * 1.4;
                     double dampRate = Math.Abs(dNorm) < 0.0004 ? 0.0 : dNorm;
-                    double damper = -dampRate * (1100 + 4600 * dampGain) * centerDamp;
+                    double damper =
+                        dampGain < 0.001
+                            ? 0.0
+                            : -dampRate * (1100 + 4600 * dampGain) * centerDamp;
                     // Friction: mechanical drag, but don't oppose return-to-center
                     double friction = 0;
-                    if (turnRate > 0.00012)
+                    if (turnRate > 0.00012 && frictionGain > 0.001)
                     {
                         friction = -Math.Sign(dNorm) * (160 + 1700 * frictionGain);
                         bool returning =
@@ -381,31 +395,35 @@ static class Program
                         if (returning) friction *= 0.12;
                     }
                     double inertia =
-                        Math.Abs(dAcc) < 0.0005 ? 0.0 : -dAcc * (1000 + 5400 * inertiaGain);
+                        Math.Abs(dAcc) < 0.0005 || inertiaGain < 0.001
+                            ? 0.0
+                            : -dAcc * (1000 + 5400 * inertiaGain);
                     int mechOut = (int)Math.Round(
                         CenterPolarity * (springSm + damper + friction + inertia));
+                    if (!telemLive && Math.Abs(mechOut) < 80)
+                        mechOut = 0;
 
-                    // Let tire-model Mz through near center; mute only tiny texture noise.
+                    // Let road/kerb texture through near center; mute only tiny noise.
                     // Impacts always punch through.
                     double gameScale = 1.0;
-                    if (absN > 0.22)
-                        gameScale = Math.Max(0.62, 1.0 - (absN - 0.22) * 0.95);
-                    gameScale *= 0.94 + 0.06 * flickEase;
+                    if (absN > 0.28)
+                        gameScale = Math.Max(0.7, 1.0 - (absN - 0.28) * 0.75);
+                    gameScale *= 0.96 + 0.04 * flickEase;
                     double gameAbs = Math.Abs(gameMag);
-                    double impactBypass = Math.Min(1.0, gameAbs / 1200.0);
-                    if (absN < 0.04)
-                        gameScale *= 0.48 + (absN / 0.04) * 0.52 + impactBypass * 0.75;
+                    double impactBypass = Math.Min(1.0, gameAbs / 900.0);
+                    if (absN < 0.03)
+                        gameScale *= 0.72 + (absN / 0.03) * 0.28 + impactBypass * 0.55;
                     gameScale = Math.Min(1.0, gameScale);
                     // Tire Mz + textures/impacts use ForcePolarity (spring uses CenterPolarity).
                     int blendedGame = (int)Math.Round(ForcePolarity * gameMag * gameScale);
-                    if (Math.Abs(blendedGame) < 160 && absN < 0.06 && gameAbs < 380)
+                    if (Math.Abs(blendedGame) < 90 && absN < 0.04 && gameAbs < 220)
                         blendedGame = 0;
                     int output = blendedGame + mechOut;
                     if (output > DiNominal) output = DiNominal;
                     if (output < -DiNominal) output = -DiNominal;
 
                     // Soft slew for cruise; wide slew for impacts so hits are felt
-                    int maxOutStep = gameAbs > 2800 ? 5600 : gameAbs > 1200 ? 3000 : 1200;
+                    int maxOutStep = gameAbs > 2800 ? 6200 : gameAbs > 1000 ? 3600 : 1800;
                     if (lastOut == int.MinValue) lastOut = 0;
                     int dOut = output - lastOut;
                     if (dOut > maxOutStep) output = lastOut + maxOutStep;

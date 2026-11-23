@@ -367,6 +367,16 @@ const en = {
   'settings.gta.hookHelp': 'Open Script Hook download',
   'settings.gta.uninstallHint':
     'Removes GTAMOZA, Script Hook, SHVDN, both ASI loaders (dinput8 + xinput1_4) and logs — game folder left clean.',
+  'settings.gta.cleanTitle': 'Full game folder cleanup',
+  'settings.gta.cleanHint':
+    'Deletes GTAMOZA, Script Hook, SHVDN, both ASI loaders, parked copies and logs from the GTA folder — vanilla install, safe for Online.',
+  'settings.gta.cleanButton': 'Remove all mod files from GTA',
+  'settings.gta.cleanNothing': 'No GTAMOZA / Script Hook files found in the game folder.',
+  'settings.gta.cleanConfirmTitle': 'Remove all mod files?',
+  'settings.gta.cleanConfirmBody':
+    'Fully quit GTA and Rockstar Launcher first. This cannot be undone from the app — you can turn on Story Mode again later to reinstall hooks.',
+  'settings.gta.cleanConfirmList': 'Will remove ({count}):',
+  'settings.gta.cleanConfirmAction': 'Delete from GTA folder',
   'settings.gta.ffbLogs': 'Open FFB effect logs',
   'settings.gta.ffbLogsOpened': 'FFB logs folder opened',
   'settings.gta.state.enabled': 'Story Mode ON',
@@ -771,6 +781,16 @@ const ru: Record<MessageKey, string> = {
   'settings.gta.hookHelp': 'Скачать Script Hook',
   'settings.gta.uninstallHint':
     'Удаляет GTAMOZA, Script Hook, SHVDN, оба ASI-лоадера (dinput8 + xinput1_4) и логи — папка игры остаётся чистой.',
+  'settings.gta.cleanTitle': 'Полная очистка папки игры',
+  'settings.gta.cleanHint':
+    'Удаляет из папки GTA всё, что ставит GTAMOZA: плагин, Script Hook, SHVDN, оба ASI-лоадера, припаркованные копии и логи — чистая игра, безопасно для Online.',
+  'settings.gta.cleanButton': 'Удалить все файлы мода из GTA',
+  'settings.gta.cleanNothing': 'В папке игры не найдено файлов GTAMOZA / Script Hook.',
+  'settings.gta.cleanConfirmTitle': 'Удалить все файлы мода?',
+  'settings.gta.cleanConfirmBody':
+    'Сначала полностью закрой GTA и Rockstar Launcher. Отменить удаление из приложения нельзя — потом можно снова включить Story Mode и поставить всё заново.',
+  'settings.gta.cleanConfirmList': 'Будет удалено ({count}):',
+  'settings.gta.cleanConfirmAction': 'Удалить из папки GTA',
   'settings.gta.ffbLogs': 'Открыть логи FFB-эффектов',
   'settings.gta.ffbLogsOpened': 'Папка логов FFB открыта',
   'settings.gta.state.enabled': 'Story Mode ВКЛ',

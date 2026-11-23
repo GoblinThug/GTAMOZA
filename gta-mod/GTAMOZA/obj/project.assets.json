@@ -420,11 +420,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\gobli\\Desktop\\Projects\\MozaSupport for GTAV\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+      "projectUniqueName": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
       "projectName": "GTAMOZA",
-      "projectPath": "C:\\Users\\gobli\\Desktop\\Projects\\MozaSupport for GTAV\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+      "projectPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
       "packagesPath": "C:\\Users\\gobli\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\gobli\\Desktop\\Projects\\MozaSupport for GTAV\\gta-mod\\GTAMOZA\\obj\\",
+      "outputPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\gobli\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -450,7 +450,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "9.0.200"
     },
     "frameworks": {
       "net48": {
@@ -463,7 +464,7 @@
             "autoReferenced": true
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.424\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200\\RuntimeIdentifierGraph.json"
       }
     }
   }

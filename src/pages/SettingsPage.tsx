@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Select, Toggle } from '../components'
+import { Button, Card, Modal, Select, Toggle } from '../components'
 import { useToast } from '../components/Toast'
 import { APP_CONFIG } from '../config'
 import { translate, type MessageKey } from '../i18n/messages'
@@ -49,6 +49,7 @@ export function SettingsPage() {
   const { t } = useI18n()
   const [gta, setGta] = useState<GtaModStatus | null>(null)
   const [gtaBusy, setGtaBusy] = useState(false)
+  const [gtaCleanConfirm, setGtaCleanConfirm] = useState(false)
 
   const refreshGta = useCallback(async () => {
     const status = await window.gtamoza?.gtaGetStatus()
@@ -307,27 +308,61 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="gta-actions gta-actions-secondary gta-uninstall-row">
-            <div>
-              <Button
-                variant="ghost"
-                disabled={gtaBusy || !gta?.canUninstall}
-                onClick={() =>
-                  void runGta(
-                    () => window.gtamoza!.gtaUninstall(false),
-                    'settings.gta.toastUninstalled',
-                  )
-                }
-              >
-                {t('settings.gta.uninstall')}
-              </Button>
-              <p className="field-hint" style={{ marginTop: 6 }}>
-                {t('settings.gta.uninstallHint')}
-              </p>
+          <div className="gta-clean-zone">
+            <div className="gta-clean-zone-copy">
+              <strong>{t('settings.gta.cleanTitle')}</strong>
+              <p className="field-hint">{t('settings.gta.cleanHint')}</p>
+              {gta?.validGame && !gta.canUninstall ? (
+                <p className="field-hint">{t('settings.gta.cleanNothing')}</p>
+              ) : null}
             </div>
+            <Button
+              variant="danger"
+              disabled={gtaBusy || !gta?.validGame || !gta?.canUninstall}
+              onClick={() => setGtaCleanConfirm(true)}
+            >
+              {t('settings.gta.cleanButton')}
+            </Button>
           </div>
         </div>
       </Card>
+
+      <Modal
+        open={gtaCleanConfirm}
+        title={t('settings.gta.cleanConfirmTitle')}
+        confirmLabel={t('settings.gta.cleanConfirmAction')}
+        cancelLabel={t('common.cancel')}
+        danger
+        onClose={() => setGtaCleanConfirm(false)}
+        onConfirm={() => {
+          setGtaCleanConfirm(false)
+          void runGta(
+            () => window.gtamoza!.gtaUninstall(false),
+            'settings.gta.toastUninstalled',
+          )
+        }}
+      >
+        <p>{t('settings.gta.cleanConfirmBody')}</p>
+        {(gta?.leftoverFiles?.length ?? 0) > 0 ? (
+          <>
+            <p className="field-hint" style={{ marginTop: 12 }}>
+              {t('settings.gta.cleanConfirmList', { count: gta!.leftoverFiles.length })}
+            </p>
+            <ul className="gta-clean-list">
+              {gta!.leftoverFiles.slice(0, 24).map((rel) => (
+                <li key={rel}>
+                  <code>{rel}</code>
+                </li>
+              ))}
+              {gta!.leftoverFiles.length > 24 ? (
+                <li>
+                  <span className="field-hint">… +{gta!.leftoverFiles.length - 24}</span>
+                </li>
+              ) : null}
+            </ul>
+          </>
+        ) : null}
+      </Modal>
 
       <Card title={t('settings.appearance')}>
         <div className="setting-row">

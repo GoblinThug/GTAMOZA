@@ -39,17 +39,18 @@ function createBuiltinProfiles(): Profile[] {
         s.steering.sensitivity = 72
         s.steering.linearity = 24
         s.ffb.overallStrength = 100
-        s.ffb.selfAligningTorque = 44
-        s.ffb.damping = 48
+        s.ffb.selfAligningTorque = 50
+        s.ffb.damping = 42
         s.ffb.friction = 14
-        s.ffb.inertia = 14
-        s.ffb.smoothing = 24
-        s.effects.road.strength = 24
-        s.effects.kerb.strength = 64
-        s.effects.suspension.strength = 64
-        s.effects.wheelSlip.strength = 34
-        s.effects.collision.strength = 66
-        s.effects.engine.strength = 10
+        s.ffb.inertia = 16
+        s.ffb.smoothing = 14
+        s.ffb.slewRate = 58
+        s.effects.road.strength = 70
+        s.effects.kerb.strength = 90
+        s.effects.suspension.strength = 84
+        s.effects.wheelSlip.strength = 64
+        s.effects.collision.strength = 90
+        s.effects.engine.strength = 32
       },
     },
     {
@@ -60,42 +61,44 @@ function createBuiltinProfiles(): Profile[] {
         s.steering.sensitivity = 68
         s.steering.linearity = 34
         s.ffb.overallStrength = 100
-        s.ffb.selfAligningTorque = 48
-        s.ffb.damping = 58
-        s.ffb.friction = 15
+        s.ffb.selfAligningTorque = 56
+        s.ffb.damping = 54
+        s.ffb.friction = 16
         s.ffb.inertia = 18
-        s.ffb.smoothing = 22
-        s.effects.road.strength = 20
-        s.effects.kerb.strength = 68
-        s.effects.suspension.strength = 70
-        s.effects.wheelSlip.strength = 30
-        s.effects.collision.strength = 70
-        s.effects.abs.strength = 24
-        s.effects.engine.strength = 8
+        s.ffb.smoothing = 16
+        s.ffb.slewRate = 55
+        s.effects.road.strength = 58
+        s.effects.kerb.strength = 88
+        s.effects.suspension.strength = 86
+        s.effects.wheelSlip.strength = 52
+        s.effects.collision.strength = 92
+        s.effects.abs.strength = 40
+        s.effects.engine.strength = 26
       },
     },
     {
       id: 'drift',
       name: 'Drift',
       tweak: (s) => {
-        // Loose rear — weak SAT, lots of slip texture, quieter road, more lock
+        // Loose rear — weak SAT, lots of slip texture, more lock
         s.steering.wheelAngle = 1080
         s.steering.sensitivity = 100
         s.steering.linearity = 22
         s.steering.deadzone = 0
-        s.ffb.overallStrength = 92
-        s.ffb.selfAligningTorque = 38
-        s.ffb.damping = 16
-        s.ffb.friction = 8
-        s.ffb.inertia = 8
-        s.ffb.smoothing = 18
-        s.effects.road.strength = 36
-        s.effects.kerb.strength = 70
-        s.effects.suspension.strength = 58
-        s.effects.wheelSlip.strength = 88
-        s.effects.collision.strength = 58
-        s.effects.abs.strength = 28
-        s.effects.engine.strength = 42
+        s.ffb.overallStrength = 96
+        s.ffb.selfAligningTorque = 40
+        s.ffb.damping = 18
+        s.ffb.friction = 10
+        s.ffb.inertia = 10
+        s.ffb.smoothing = 12
+        s.ffb.slewRate = 62
+        s.effects.road.strength = 55
+        s.effects.kerb.strength = 84
+        s.effects.suspension.strength = 72
+        s.effects.wheelSlip.strength = 95
+        s.effects.collision.strength = 78
+        s.effects.abs.strength = 45
+        s.effects.engine.strength = 55
       },
     },
     {
@@ -106,19 +109,20 @@ function createBuiltinProfiles(): Profile[] {
         s.steering.sensitivity = 52
         s.steering.linearity = 32
         s.steering.deadzone = 3
-        s.ffb.overallStrength = 94
-        s.ffb.selfAligningTorque = 54
-        s.ffb.damping = 42
-        s.ffb.friction = 20
-        s.ffb.inertia = 18
-        s.ffb.smoothing = 24
-        s.effects.road.strength = 48
-        s.effects.kerb.strength = 72
-        s.effects.grass.strength = 78
-        s.effects.suspension.strength = 88
-        s.effects.wheelSlip.strength = 62
-        s.effects.collision.strength = 86
-        s.effects.engine.strength = 28
+        s.ffb.overallStrength = 100
+        s.ffb.selfAligningTorque = 60
+        s.ffb.damping = 44
+        s.ffb.friction = 22
+        s.ffb.inertia = 20
+        s.ffb.smoothing = 16
+        s.ffb.slewRate = 50
+        s.effects.road.strength = 72
+        s.effects.kerb.strength = 90
+        s.effects.grass.strength = 92
+        s.effects.suspension.strength = 95
+        s.effects.wheelSlip.strength = 78
+        s.effects.collision.strength = 95
+        s.effects.engine.strength = 40
       },
     },
   ]

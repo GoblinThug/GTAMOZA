@@ -188,6 +188,8 @@ export type GtaModStatus = {
   canEnable: boolean
   canDisable: boolean
   canUninstall: boolean
+  /** Relative paths under the game folder that full cleanup would remove. */
+  leftoverFiles: string[]
 }
 
 export type ProfilesStore = {
@@ -212,36 +214,35 @@ export const DEFAULT_STEERING: SteeringSettings = {
 }
 
 /**
- * Factory FFB baseline — sim-style (iRacing / ACC):
- * mild host spring, strong damp, tire model via Suspension effect.
+ * Factory FFB baseline — strong, readable column for GTA Story Mode.
  * Pit House: Wheel Spring 0%, Hands-Off preferably Off.
  */
 export const DEFAULT_FFB: FfbSettings = {
   overallStrength: 100,
   maximumTorque: 5.5,
-  selfAligningTorque: 52,
-  damping: 64,
-  friction: 22,
-  inertia: 24,
-  smoothing: 32,
-  slewRate: 36,
+  selfAligningTorque: 58,
+  damping: 52,
+  friction: 18,
+  inertia: 20,
+  smoothing: 18,
+  slewRate: 52,
   enabled: true,
 }
 
-/** Factory effects — quieter detail; kerb/hit still readable over calm asphalt. */
+/** Factory effects — fat road/kerb/slip texture; impacts still punch through. */
 export const DEFAULT_EFFECTS: EffectsSettings = {
-  road: { enabled: true, strength: 18 },
-  kerb: { enabled: true, strength: 58 },
-  grass: { enabled: true, strength: 36 },
-  suspension: { enabled: true, strength: 58 },
-  wheelSlip: { enabled: true, strength: 28 },
-  abs: { enabled: true, strength: 20 },
-  collision: { enabled: true, strength: 62 },
-  engine: { enabled: true, strength: 6 },
+  road: { enabled: true, strength: 62 },
+  kerb: { enabled: true, strength: 86 },
+  grass: { enabled: true, strength: 68 },
+  suspension: { enabled: true, strength: 80 },
+  wheelSlip: { enabled: true, strength: 58 },
+  abs: { enabled: true, strength: 42 },
+  collision: { enabled: true, strength: 88 },
+  engine: { enabled: true, strength: 28 },
 }
 
 /** Stored in profiles.json — bump to re-apply DEFAULT_* / builtin FFB presets. */
-export const FFB_TUNE_REVISION = 29
+export const FFB_TUNE_REVISION = 30
 
 export function createDefaultProfileSettings(): ProfileSettings {
   return {

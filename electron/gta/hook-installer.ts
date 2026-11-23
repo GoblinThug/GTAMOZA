@@ -6,7 +6,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { app } from 'electron'
+import { app, net } from 'electron'
 
 const execFileAsync = promisify(execFile)
 
@@ -61,20 +61,113 @@ function ensureDir(p: string) {
   fs.mkdirSync(p, { recursive: true })
 }
 
-async function downloadFile(url: string, dest: string, extraHeaders?: Record<string, string>) {
-  ensureDir(path.dirname(dest))
-  const res = await fetch(url, {
-    headers: { ...BROWSER_HEADERS, ...extraHeaders },
-    redirect: 'follow',
-  })
-  if (!res.ok) {
-    throw new Error(`download_failed_${res.status}`)
+/** Escape for single-quoted PowerShell literals. */
+function psQuote(s: string) {
+  return s.replace(/'/g, "''")
+}
+
+function mergeHeaders(extra?: Record<string, string>) {
+  return { ...BROWSER_HEADERS, ...extra }
+}
+
+/**
+ * WinHTTP/Schannel can reach hosts (e.g. dev-c.com) where Node OpenSSL TLS fails.
+ * Prefer Chromium net.fetch in Electron, then node fetch, then PowerShell.
+ */
+async function fetchHttpResponse(
+  url: string,
+  extraHeaders?: Record<string, string>,
+): Promise<Response> {
+  const headers = mergeHeaders(extraHeaders)
+  const init = { headers, redirect: 'follow' as const }
+
+  try {
+    return await net.fetch(url, init)
+  } catch (err) {
+    console.warn('[hooks] net.fetch failed', url, err)
   }
-  const buf = Buffer.from(await res.arrayBuffer())
-  if (buf.length < 1024) {
+
+  try {
+    return await fetch(url, init)
+  } catch (err) {
+    console.warn('[hooks] node fetch failed', url, err)
+    const text = await fetchTextPowerShell(url, headers)
+    // Minimal Response shim for callers that only need .ok / .text() / .json()
+    return {
+      ok: true,
+      status: 200,
+      text: async () => text,
+      json: async () => JSON.parse(text) as unknown,
+      arrayBuffer: async () => Buffer.from(text, 'utf8').buffer,
+    } as Response
+  }
+}
+
+async function fetchTextPowerShell(
+  url: string,
+  headers: Record<string, string>,
+): Promise<string> {
+  const assigns = Object.entries(headers)
+    .map(([k, v]) => `$h['${psQuote(k)}']='${psQuote(v)}'`)
+    .join('; ')
+  const cmd = `$h=@{};${assigns}; (Invoke-WebRequest -Uri '${psQuote(url)}' -UseBasicParsing -Headers $h).Content`
+  const { stdout } = await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', cmd],
+    { windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
+  )
+  const text = stdout.toString()
+  if (!text.trim()) throw new Error('download_network_failed')
+  return text
+}
+
+async function downloadFilePowerShell(
+  url: string,
+  dest: string,
+  headers: Record<string, string>,
+): Promise<void> {
+  ensureDir(path.dirname(dest))
+  const assigns = Object.entries(headers)
+    .map(([k, v]) => `$h['${psQuote(k)}']='${psQuote(v)}'`)
+    .join('; ')
+  const cmd = `$h=@{};${assigns}; Invoke-WebRequest -Uri '${psQuote(url)}' -OutFile '${psQuote(dest)}' -UseBasicParsing -Headers $h`
+  await execFileAsync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-Command', cmd],
+    { windowsHide: true },
+  )
+  if (!exists(dest) || fs.statSync(dest).size < 1024) {
     throw new Error('download_too_small')
   }
-  fs.writeFileSync(dest, buf)
+}
+
+async function downloadFile(url: string, dest: string, extraHeaders?: Record<string, string>) {
+  ensureDir(path.dirname(dest))
+  const headers = mergeHeaders(extraHeaders)
+
+  try {
+    let res: Response
+    try {
+      res = await net.fetch(url, { headers, redirect: 'follow' })
+    } catch (err) {
+      console.warn('[hooks] net.fetch download failed', url, err)
+      try {
+        res = await fetch(url, { headers, redirect: 'follow' })
+      } catch {
+        await downloadFilePowerShell(url, dest, headers)
+        return
+      }
+    }
+    if (!res.ok) throw new Error(`download_failed_${res.status}`)
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (buf.length < 1024) throw new Error('download_too_small')
+    fs.writeFileSync(dest, buf)
+    return
+  } catch (err) {
+    if (exists(dest)) fs.rmSync(dest, { force: true })
+    if (err instanceof Error && err.message.startsWith('download_')) throw err
+    await downloadFilePowerShell(url, dest, headers)
+  }
 }
 
 async function extractZip(zipPath: string, destDir: string) {
@@ -141,12 +234,9 @@ function copyReplace(
 
 async function resolveScriptHookVZipUrl(): Promise<string> {
   const pageUrl = 'https://www.dev-c.com/gtav/scripthookv/'
-  const res = await fetch(pageUrl, {
-    headers: {
-      ...BROWSER_HEADERS,
-      Accept: 'text/html,application/xhtml+xml',
-      Referer: 'https://www.dev-c.com/',
-    },
+  const res = await fetchHttpResponse(pageUrl, {
+    Accept: 'text/html,application/xhtml+xml',
+    Referer: 'https://www.dev-c.com/',
   })
   if (!res.ok) throw new Error('scripthookv_page_failed')
   const html = await res.text()
@@ -158,11 +248,8 @@ async function resolveScriptHookVZipUrl(): Promise<string> {
 async function resolveShvdnZipUrl(): Promise<{ url: string; name: string }> {
   const api =
     'https://api.github.com/repos/Chiheb-Bacha/ScriptHookVDotNetEnhanced/releases/latest'
-  const res = await fetch(api, {
-    headers: {
-      ...BROWSER_HEADERS,
-      Accept: 'application/vnd.github+json',
-    },
+  const res = await fetchHttpResponse(api, {
+    Accept: 'application/vnd.github+json',
   })
   if (!res.ok) throw new Error('shvdn_release_failed')
   const json = (await res.json()) as {

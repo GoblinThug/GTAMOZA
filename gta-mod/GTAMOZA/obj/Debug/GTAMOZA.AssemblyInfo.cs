@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GTAMOZA")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+413a3bc4df3b6b2a21346c2add65780e99147bfd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3106dcf2fc00a770b92a0af370fad90672ec09ac")]
 [assembly: System.Reflection.AssemblyProductAttribute("GTAMOZA")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GTAMOZA")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -166,14 +166,29 @@ function listPresentHooks(gamePath: string): string[] {
 }
 
 /** Mod / hook files still present in the game root (including legacy loader + logs). */
+function toDisplayRel(rel: string): string {
+  return rel.replace(/\\/g, '/')
+}
+
 export function listLeftoverModFiles(gamePath: string): string[] {
   const left: string[] = []
-  for (const rel of UNINSTALL_ROOT_REL_PATHS) {
-    if (exists(path.join(gamePath, rel))) left.push(rel)
+  const push = (rel: string) => {
+    const norm = toDisplayRel(rel)
+    if (!left.includes(norm)) left.push(norm)
   }
-  if (exists(path.join(gamePath, OUR_PLUGIN_DLL))) left.push(OUR_PLUGIN_DLL)
-  if (exists(path.join(gamePath, OUR_PLUGIN_DIR))) left.push(OUR_PLUGIN_DIR)
-  if (exists(manageRoot(gamePath))) left.push(MANAGE_DIR)
+  for (const rel of UNINSTALL_ROOT_REL_PATHS) {
+    if (exists(path.join(gamePath, rel))) push(rel)
+  }
+  if (exists(path.join(gamePath, OUR_PLUGIN_DLL))) push(OUR_PLUGIN_DLL)
+  if (exists(path.join(gamePath, OUR_PLUGIN_DIR))) push(OUR_PLUGIN_DIR)
+  for (const rel of listParkedHooks(gamePath)) {
+    push(path.join(MANAGE_DIR, PARKED_DIR, rel))
+  }
+  const parkedDll = path.join(parkedRoot(gamePath), OUR_PLUGIN_DLL)
+  const parkedDir = path.join(parkedRoot(gamePath), OUR_PLUGIN_DIR)
+  if (exists(parkedDll)) push(path.join(MANAGE_DIR, PARKED_DIR, OUR_PLUGIN_DLL))
+  if (exists(parkedDir)) push(path.join(MANAGE_DIR, PARKED_DIR, OUR_PLUGIN_DIR))
+  if (exists(manageRoot(gamePath))) push(MANAGE_DIR)
   return left
 }
 
@@ -318,6 +333,7 @@ function buildStatus(gamePath: string | null): GtaModStatus {
       canEnable: false,
       canDisable: false,
       canUninstall: false,
+      leftoverFiles: [],
     }
   }
 
@@ -369,6 +385,7 @@ function buildStatus(gamePath: string | null): GtaModStatus {
   }
 
   const hasAnyHooks = hooksInRoot.length > 0 || hooksParked.length > 0
+  const leftoverFiles = listLeftoverModFiles(gamePath)
 
   return {
     gamePath,
@@ -388,11 +405,8 @@ function buildStatus(gamePath: string | null): GtaModStatus {
     // Always re-runnable: Enable also refreshes GTAMOZA.dll when Story Mode is already ON.
     canEnable: true,
     canDisable: state === 'enabled' || (hasAsiLoader && hasOurPlugin),
-    canUninstall:
-      Boolean(manifest) ||
-      hasOurPlugin ||
-      hasAnyHooks ||
-      listLeftoverModFiles(gamePath).length > 0,
+    canUninstall: leftoverFiles.length > 0,
+    leftoverFiles,
   }
 }
 
@@ -681,6 +695,16 @@ export function uninstallGtaIntegration(
   // Plugin (live)
   for (const rel of [OUR_PLUGIN_DLL, OUR_PLUGIN_DIR]) {
     const left = tryRmRel(gamePath, rel)
+    if (left) blocked.push(left)
+  }
+
+  // Parked copies (Prepare for Online / previous disables)
+  for (const rel of HOOK_REL_PATHS) {
+    const left = tryRmRel(gamePath, path.join(MANAGE_DIR, PARKED_DIR, rel))
+    if (left) blocked.push(left)
+  }
+  for (const rel of [OUR_PLUGIN_DLL, OUR_PLUGIN_DIR]) {
+    const left = tryRmRel(gamePath, path.join(MANAGE_DIR, PARKED_DIR, rel))
     if (left) blocked.push(left)
   }
 

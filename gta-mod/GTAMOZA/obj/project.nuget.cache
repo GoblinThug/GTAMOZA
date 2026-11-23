@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "sMkRQRP6b+g=",
+  "dgSpecHash": "sJZ0mXFKJJs=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gobli\\Desktop\\Projects\\MozaSupport for GTAV\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+  "projectFilePath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
     "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
