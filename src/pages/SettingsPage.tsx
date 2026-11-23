@@ -207,21 +207,51 @@ export function SettingsPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  disabled={gtaBusy || !gta?.validGame || !storyOn}
+                  disabled={gtaBusy}
                   onClick={() => {
                     void (async () => {
+                      if (!window.gtamoza) return
                       setGtaBusy(true)
                       try {
-                        const result = await window.gtamoza?.gtaLaunchStory()
+                        const result = await window.gtamoza.gtaLaunchStory()
+                        if (result?.status) {
+                          setGta(result.status)
+                          if (
+                            result.status.gamePath &&
+                            result.status.gamePath !== settings.gtaGamePath
+                          ) {
+                            await updateAppSettings({
+                              gtaGamePath: result.status.gamePath,
+                            })
+                          }
+                        }
                         if (!result?.ok) {
                           const err = result?.error ?? 'launch_failed'
+                          if (err === 'cancelled') return
+                          if (
+                            err === 'hooks_missing' ||
+                            err === 'hooks_incomplete' ||
+                            err?.startsWith('scripthookv_') ||
+                            err?.startsWith('shvdn_') ||
+                            err?.startsWith('download_')
+                          ) {
+                            toast.push({
+                              title: t('settings.gta.toastHooksMissing'),
+                              tone: 'warning',
+                            })
+                            return
+                          }
                           toast.push({
                             title:
                               err === 'already_running'
                                 ? t('settings.gta.toastLaunchRunning')
-                                : err === 'plugin_missing'
-                                  ? t('settings.gta.toastPluginMissing')
-                                  : t('settings.gta.toastLaunchFailed', { error: err }),
+                                : err === 'invalid_game'
+                                  ? t('settings.gta.toastInvalid')
+                                  : err === 'plugin_missing'
+                                    ? t('settings.gta.toastPluginMissing')
+                                    : t('settings.gta.toastLaunchFailed', {
+                                        error: err,
+                                      }),
                             tone: 'error',
                           })
                           return

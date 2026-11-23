@@ -169,6 +169,7 @@ export type GtamozaApi = {
     exe?: string
     store?: 'steam' | 'epic' | 'rockstar' | 'unknown'
     note?: 'disable_battleye_in_launcher' | 'set_epic_launch_options'
+    status?: GtaModStatus
   }>
   gtaGetLinkStatus: () => Promise<{
     connected: boolean

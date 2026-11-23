@@ -245,6 +245,7 @@ const api = {
     exe?: string
     store?: 'steam' | 'epic' | 'rockstar' | 'unknown'
     note?: 'disable_battleye_in_launcher' | 'set_epic_launch_options'
+    status?: GtaModStatus
   }> => ipcRenderer.invoke('gta:launchStory'),
   gtaOpenFfbLogs: (): Promise<{ ok: boolean; path: string | null; dir: string }> =>
     ipcRenderer.invoke('gta:openFfbLogs'),

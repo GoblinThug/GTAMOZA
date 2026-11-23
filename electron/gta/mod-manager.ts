@@ -778,6 +778,12 @@ export function detectGtaStore(gamePath: string): GtaStoreKind {
     return 'epic'
   }
   if (norm.includes('\\rockstar games\\')) return 'rockstar'
+  if (
+    exists(path.join(gamePath, 'PlayGTAV.exe')) &&
+    !exists(path.join(gamePath, 'steam_appid.txt'))
+  ) {
+    return 'rockstar'
+  }
   try {
     const out = execFileSync(
       'reg',
@@ -882,6 +888,53 @@ export type GtaLaunchResult = {
   store: GtaStoreKind
   /** Extra note for Rockstar/Epic when -nobattleye cannot be forced from here. */
   note?: 'disable_battleye_in_launcher' | 'set_epic_launch_options'
+  status?: GtaModStatus
+}
+
+/**
+ * Pick game folder if needed, enable Story Mode stack, then launch.
+ */
+export async function launchGtaStoryPrepared(
+  savedPath: string | null | undefined,
+  parent?: BrowserWindow | null,
+): Promise<GtaLaunchResult> {
+  let gamePath =
+    savedPath && savedPath.trim() && isValidGameDir(savedPath.trim())
+      ? savedPath.trim()
+      : null
+
+  if (!gamePath) {
+    const picked = await pickGtaGameFolder(parent)
+    if (picked.error === 'cancelled') {
+      return { ok: false, error: 'cancelled', store: 'unknown', status: picked.status }
+    }
+    if (!picked.ok || !picked.status.gamePath || !picked.status.validGame) {
+      return {
+        ok: false,
+        error: picked.error ?? 'invalid_game',
+        store: 'unknown',
+        status: picked.status,
+      }
+    }
+    gamePath = picked.status.gamePath
+  }
+
+  let statusAfter = buildStatus(gamePath)
+  if (statusAfter.state !== 'enabled') {
+    const enabled = await enableGtaIntegration(gamePath)
+    statusAfter = enabled.status
+    if (!enabled.ok) {
+      return {
+        ok: false,
+        error: enabled.error ?? 'hooks_missing',
+        store: detectGtaStore(gamePath),
+        status: statusAfter,
+      }
+    }
+  }
+
+  const launch = launchGtaStoryNoBattlEye(gamePath)
+  return { ...launch, status: statusAfter }
 }
 
 /**
@@ -908,7 +961,7 @@ export function launchGtaStoryNoBattlEye(gamePath: string): GtaLaunchResult {
   const store = detectGtaStore(gamePath)
 
   try {
-    if (store === 'steam' || (store === 'unknown' && resolveSteamExe())) {
+    if (store === 'steam') {
       const steam = resolveSteamExe()
       if (steam) {
         spawnDetached(steam, [
@@ -950,19 +1003,21 @@ export function launchGtaStoryNoBattlEye(gamePath: string): GtaLaunchResult {
       }
     }
 
-    // Rockstar (or unknown without Steam): PlayGTAV.exe boots through R* Launcher
-    // (direct GTA5_Enhanced.exe → ERR_NO_LAUNCHER). BattlEye must be off in R* settings.
+    // Rockstar / install folder — never fall back to Steam when store is unknown.
     const play =
       [
         path.join(gamePath, 'PlayGTAV.exe'),
         path.join(gamePath, 'GTA5_Enhanced.exe'),
       ].find((p) => exists(p)) ?? null
     const rstar = resolveRockstarLauncherExe()
+    const launchStore: GtaStoreKind =
+      store === 'unknown' && (play || rstar) ? 'rockstar' : store
+
     if (play && path.basename(play).toLowerCase() === 'playgtav.exe') {
       spawnDetached(play, [])
       return {
         ok: true,
-        store: store === 'unknown' ? 'rockstar' : store,
+        store: launchStore === 'unknown' ? 'rockstar' : launchStore,
         exe: play,
         note: 'disable_battleye_in_launcher',
       }
@@ -971,17 +1026,16 @@ export function launchGtaStoryNoBattlEye(gamePath: string): GtaLaunchResult {
       spawnDetached(rstar, [])
       return {
         ok: true,
-        store: 'rockstar',
+        store: launchStore === 'unknown' ? 'rockstar' : launchStore,
         exe: rstar,
         note: 'disable_battleye_in_launcher',
       }
     }
     if (play) {
-      // Last resort — may show ERR_NO_LAUNCHER if R* is required.
       spawnDetached(play, [])
       return {
         ok: true,
-        store,
+        store: launchStore,
         exe: play,
         note: 'disable_battleye_in_launcher',
       }

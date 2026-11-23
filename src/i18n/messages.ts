@@ -344,7 +344,7 @@ const en = {
   'settings.gta.store.unknown': 'Unknown',
   'settings.gta.launchStory': 'Launch Story Mode (no BattlEye)',
   'settings.gta.launchStoryHint':
-    'Steam: starts with -nobattleye. Epic: set Launch Options to -nobattleye once, then use this button. Rockstar: uncheck Enable BattlEye in launcher settings, then use this button.',
+    'Picks the game folder if missing, enables Story Mode (hooks + plugin), then launches. Steam uses -nobattleye. Rockstar/Epic: turn off BattlEye in the launcher first.',
   'settings.gta.toastLaunched': 'Launching Story Mode…',
   'settings.gta.toastLaunchedSteam': 'Launching via Steam (−nobattleye)…',
   'settings.gta.toastLaunchedEpic':
@@ -758,7 +758,7 @@ const ru: Record<MessageKey, string> = {
   'settings.gta.store.unknown': 'Не определён',
   'settings.gta.launchStory': 'Запуск Story Mode (без BattlEye)',
   'settings.gta.launchStoryHint':
-    'Steam: старт с -nobattleye. Epic: один раз пропиши -nobattleye в Launch Options, потом эта кнопка. Rockstar: сними Enable BattlEye в настройках лаунчера, потом эта кнопка.',
+    'Если папка игры не задана — предложит выбрать. Включит Story Mode (хуки + плагин) и запустит. Steam — с -nobattleye. Rockstar/Epic — сначала выключи BattlEye в лаунчере.',
   'settings.gta.toastLaunched': 'Запуск Story Mode…',
   'settings.gta.toastLaunchedSteam': 'Запуск через Steam (−nobattleye)…',
   'settings.gta.toastLaunchedEpic':

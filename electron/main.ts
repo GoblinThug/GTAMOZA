@@ -18,7 +18,7 @@ import {
   enableGtaIntegration,
   getGtaModStatus,
   hotReloadGtaPlugin,
-  launchGtaStoryNoBattlEye,
+  launchGtaStoryPrepared,
   openGtaHookHelp,
   pickGtaGameFolder,
   resolveGtaPath,
@@ -257,13 +257,16 @@ function registerIpc() {
   ipcMain.handle('gta:openHookHelp', () => {
     openGtaHookHelp()
   })
-  ipcMain.handle('gta:launchStory', () => {
+  ipcMain.handle('gta:launchStory', async () => {
     const settings = loadSettings()
-    const gamePath = resolveGtaPath(settings.gtaGamePath)
-    if (!gamePath) {
-      return { ok: false, error: 'invalid_game' }
+    const result = await launchGtaStoryPrepared(
+      settings.gtaGamePath,
+      mainWindow,
+    )
+    if (result.status?.gamePath && result.status.validGame) {
+      saveSettings({ gtaGamePath: result.status.gamePath })
     }
-    return launchGtaStoryNoBattlEye(gamePath)
+    return result
   })
   ipcMain.handle('gta:hotReload', async () => {
     const settings = loadSettings()
