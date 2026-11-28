@@ -39,9 +39,9 @@
 
 .effect-row {
   display: grid;
-  grid-template-columns: minmax(110px, 150px) 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: start;
-  gap: 16px;
+  gap: 14px;
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
 }
@@ -53,6 +53,107 @@
 .effect-row .setting-field {
   padding: 0;
   border: none;
+}
+
+.effect-row > .toggle {
+  margin-top: 6px;
+}
+
+.hardware-readouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px 4px;
+}
+
+.hardware-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-elevated, var(--bg-secondary));
+  border: 1px solid var(--border);
+}
+
+.hardware-readout-label {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.hardware-readout-value {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.hardware-hint {
+  margin: 0;
+  padding: 8px 16px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.link-btn {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  color: var(--accent, #3b82f6);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-btn:hover {
+  opacity: 0.9;
+}
+
+.ffb-advanced {
+  margin: 0 0 16px;
+}
+
+.ffb-advanced-summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.ffb-advanced-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ffb-advanced-summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.ffb-advanced[open] > .ffb-advanced-summary::before {
+  transform: rotate(90deg);
+}
+
+.ffb-advanced[open] > .ffb-advanced-summary {
+  color: var(--text-primary);
 }
 
 .effect-name {
@@ -711,8 +812,12 @@
   }
 
   .effect-row {
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+  }
+
+  .hardware-readouts {
     grid-template-columns: 1fr;
-    gap: 8px;
   }
 
   .live-inputs {

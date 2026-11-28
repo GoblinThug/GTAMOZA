@@ -205,7 +205,7 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\gobli\\.nuget\\packages\\": {}
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget": {}
   },
   "project": {
     "version": "1.0.0",
@@ -213,7 +213,7 @@
       "projectUniqueName": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\tools\\ffb-host\\FfbHost.csproj",
       "projectName": "gtamoza-ffb",
       "projectPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\tools\\ffb-host\\FfbHost.csproj",
-      "packagesPath": "C:\\Users\\gobli\\.nuget\\packages\\",
+      "packagesPath": "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget",
       "outputPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\tools\\ffb-host\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [

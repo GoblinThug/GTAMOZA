@@ -48,13 +48,17 @@
 | 🧩 | Плагин `GTAMOZA.dll` (ScriptHookVDotNet) — ставится из приложения |
 | 🚦 | Поворотники на лепестках (авто-обучение кнопок / ось сцепления) |
 | 🛡️ | «Prepare for Online» — парковка хуков перед Online |
+| 🚀 | **Launch Story Mode** — папка игры (если нужно), хуки, запуск без BattlEye |
+| 🏪 | Определение магазина: Steam / Epic / Rockstar Launcher |
+| 🧹 | Полная очистка файлов мода из папки GTA (без удаления игры) |
 | 🎛️ | Профили: Default / Sports / Supercars / Drift / Offroad |
-| 🎚️ | Эффекты: дорога, kerb, grass, подвеска, slip, ABS, collision, engine |
+| 🎚️ | **FFB** в одном месте: Master → колонка (как Pit House) → дорога / события |
+| 🛞 | Forza-busy зерно дороги + anti-ring / без бокового рывка на торможении |
 | ⌨️ | Чит-хоткеи Story Mode (опционально) |
 | 🎨 | Тёмная / светлая / system тема, **ru** + **en** |
 | ⬆️ | Автообновления с GitHub Releases (Setup) |
 
-Текущая версия в репозитории: **`2.0.0`** (актуальный номер — всегда в [Releases](https://github.com/GoblinThug/GTAMOZA/releases)).
+Текущая версия в репозитории: **`2.3.0`** (актуальный номер — в `package.json` и [Releases](https://github.com/GoblinThug/GTAMOZA/releases)).
 
 > ⚠️ **Только Story Mode.** Script Hook / ASI loader **нельзя** использовать в Online. Перед Online — кнопка **Prepare for Online** и отключение `-nobattleye` / BattlEye по правилам Rockstar.
 
@@ -85,9 +89,12 @@ macOS / Linux **не** поддерживаются (DirectInput + GTA Enhanced 
 
 1. Установите **MOZA Pit House**, база MOZA подключена (R3 / R5 / R9 / …).
 2. В Pit House: **Wheel Spring = 0%** (SAT делает приложение), Hands-Off Protection лучше Off.
-3. Откройте **GTA Moza Drive** → укажите папку **GTA V Enhanced**.
-4. Нажмите **Turn on Story Mode** (скачает/поставит Script Hook + `GTAMOZA.dll` при необходимости).
-5. Запускайте игру через **Launch Story Mode** (Steam: `-nobattleye`) или свой ярлык с отключённым BattlEye.
+3. Откройте **GTA Moza Drive**.
+4. **Быстрый путь:** **Запуск Story Mode (без BattlEye)** — выбор папки (если не задана), установка Script Hook + `GTAMOZA.dll`, запуск игры.
+   - **Steam** — через `-nobattleye`.
+   - **Rockstar / Epic** — один раз выключите BattlEye в лаунчере, затем та же кнопка; Rockstar стартует через `PlayGTAV.exe`, не через Steam.
+   - **Включить Story Mode** отдельно, если нужны только хуки без запуска.
+5. При установке в папку **Rockstar** Windows может запросить **UAC** (папка игры часто только для чтения) — подтвердите один раз, чтобы скопировать `dinput8` / `xinput1_4` и плагин.
 6. Включите FFB в приложении, сядьте в машину — руль должен ожить.
 
 Hot-reload плагина в игре: **F11** (появится субтитр `GTAMOZA Hot-reload OK`).
@@ -150,7 +157,7 @@ GTA Moza Drive ── UDP 29756 ── FFB cmd ──► gtamoza-ffb.exe
 
 ## 🧲 Система физики FFB
 
-GTA не отдаёт aligning torque шин. Стек GTAMOZA имитирует ощущение в духе симов: **одна пружина возврата** + **механическая колонка** + **игровые эффекты без DC-тяги в поворот**.
+GTA не отдаёт aligning torque шин. Стек GTAMOZA имитирует ощущение в духе симов / **MOZA + других игр**: **одна пружина возврата** + **механическая колонка** + **игровые эффекты без DC-тяги в поворот**. Зерно дороги (rev **33+**) ближе к **Forza Motorsport**: плотный асфальт, читаемые переходы, резкие бордюры/кочки. UI **2.3.0**: все силы обода на вкладке **FFB**; **Руль** — только маппинг в GTA + чтение Pit House.
 
 ### Слои (снизу вверх)
 
@@ -158,7 +165,7 @@ GTA не отдаёт aligning torque шин. Стек GTAMOZA имитируе�
 ┌─────────────────────────────────────────────────────────┐
 │  Игровые эффекты (Electron)                             │
 │  дорога · kerb · grass · bump · slip · ABS · collision  │
-│  · engine — AC-текстура / импульсы, без ±steer SAT      │
+│  · engine — Forza-like multi-band / импульсы, без ±steer│
 ├─────────────────────────────────────────────────────────┤
 │  Команда center / damp / friction / inertia             │
 │  (нагрузка от скорости, тормоза, slip — мягко)          │
@@ -171,23 +178,24 @@ GTA не отдаёт aligning torque шин. Стек GTAMOZA имитируе�
 
 | Слой | Что делает | Ползунок в приложении |
 |---|---|---|
-| **SAT / center** | Возврат в центр на скорости (host spring) | Самовыравнивание |
-| **Damping** | Стабильность, вес под тормозом (плавно) | Демпфирование |
-| **Friction / Inertia** | «Тяжесть» обода, сопротивление рывкам | Трение / Инерция |
-| **Road / Kerb / Grass** | Зерно поверхности (на асфальте тихо) | Эффекты → Дорога / … |
-| **Suspension** | Ямы / heave (не тяга в поворот) | Подвеска |
-| **Wheel slip / ABS** | Потеря сцепления, пульс ABS | Пробуксовка / ABS |
-| **Collision** | Удары; мягкие ложные на прямой под тормозом глушатся | Столкновение |
-| **Engine** | Лёгкий buzz под нагрузкой | Двигатель |
-| **Overall / Smoothing** | Мастер-гейн и сглаживание пиков | Общая сила / Сглаживание |
+| **SAT / center** | Возврат в центр на скорости (host spring, anti-ring на отпускании) | FFB → Самовыравнивание |
+| **Damping** | Стабильность, вес под тормозом, гашение L/R | FFB → Демпфирование |
+| **Friction / Inertia** | «Тяжесть» обода (как в Pit House) | FFB → Трение / Инерция |
+| **Road / Kerb / Grass** | Зерно поверхности (асфальт «живой», бордюр жёстче) | FFB → Дорога / … |
+| **Suspension** | Ямы / heave — короткая атака/спад (не тяга в поворот) | FFB → Подвеска |
+| **Wheel slip / ABS** | Потеря сцепления; ABS — пульс **сопротивления**, не L/R рывок | FFB → Пробуксовка / ABS |
+| **Collision** | Удары; торможение **не** считается столкновением | FFB → Столкновение |
+| **Engine** | Лёгкий buzz под нагрузкой | FFB → Двигатель |
+| **Overall / Smoothing / Slew** | Мастер-гейн, сглаживание, скорость нарастания | FFB → Master / Дополнительно |
 
 ### Принципы настройки (заводской профиль)
 
 - **Pit House Wheel Spring = 0%** — иначе две пружины дерутся.
 - Возврат в центр — **только** Self-aligning torque (host), не игровой ±steer.
-- Асфальт спокойный; бордюр и удары читаются поверх.
-- Торможение утяжеляет колонку **плавно** (damp/slew), без бокового рывка.
-- Заводские дефолты в приложении — **референс**; под себя крутите слайдеры в UI, не обязательно править исходники.
+- Асфальт читается на круизе (Forza-busy); бордюр и удары пробивают поверх.
+- Отпускание обода: soft spring + extra return damp — **без** бесконечного L/R дёрганья.
+- Торможение: плавный **damp/slew**, без бокового рывка; замедление ≠ удар (FFB tune rev **33+**).
+- Заводские дефолты — **референс** под MOZA / другие игры; крутите слайдеры в **FFB**, не обязательно править исходники.
 
 ### Полярность
 
@@ -208,7 +216,8 @@ GTA Enhanced  →  GTAMOZA.dll (UDP 29755 telemetry)
 ```
 
 - Плагин и `gtamoza-ffb` **внутри** установщика (`extraResources`).
-- При Enable приложение копирует `GTAMOZA.dll` в `…/Grand Theft Auto V Enhanced/scripts/`.
+- При Enable приложение скачивает Script Hook + SHVDN (при необходимости) и копирует `GTAMOZA.dll` в `…/scripts/`.
+- Хуки кэшируются в `%AppData%/GTA Moza Drive/hooks-cache`. Скачивание: Chromium → Node → PowerShell (если TLS режет dev-c.com).
 
 ---
 
@@ -221,6 +230,7 @@ git clone https://github.com/GoblinThug/GTAMOZA.git
 cd GTAMOZA
 npm install
 npm run fetch:shvdn    # ScriptHookVDotNet3.dll → libs/ (если нет игры)
+npm run fetch:electron # если npm не качает Electron (ETIMEDOUT / SSL) — см. package.json electronDist
 npm run build:native   # GTAMOZA.dll + gtamoza-ffb.exe
 npm run dev
 ```
@@ -282,13 +292,17 @@ GTA has no real tire model (unlike iRacing / ACC). GTAMOZA builds its **own stac
 | 🧩 | `GTAMOZA.dll` plugin (ScriptHookVDotNet) installed from the app |
 | 🚦 | Turn signals on paddles (button auto-learn / clutch axis) |
 | 🛡️ | “Prepare for Online” — park hooks before Online |
+| 🚀 | **Launch Story Mode** — game folder (if needed), hooks, BattlEye-off launch |
+| 🏪 | Store detection: Steam / Epic / Rockstar Launcher |
+| 🧹 | Full clean of mod files from the GTA folder (game stays) |
 | 🎛️ | Profiles: Default / Sports / Supercars / Drift / Offroad |
-| 🎚️ | Effects: road, kerb, grass, suspension, slip, ABS, collision, engine |
+| 🎚️ | **FFB** in one place: Master → column (Pit House–style) → road / events |
+| 🛞 | Forza-busy road grain + anti-ring / no sideways yank under braking |
 | ⌨️ | Optional Story Mode cheat hotkeys |
 | 🎨 | Dark / light / system theme, **en** + **ru** |
 | ⬆️ | Auto-updates from GitHub Releases (Setup) |
 
-Repo version: **`2.0.0`** (always check [Releases](https://github.com/GoblinThug/GTAMOZA/releases) for the latest).
+Repo version: **`2.3.0`** (see `package.json` and [Releases](https://github.com/GoblinThug/GTAMOZA/releases) for the latest).
 
 > ⚠️ **Story Mode only.** Do **not** use Script Hook / ASI loaders in Online. Use **Prepare for Online** and restore BattlEye / remove `-nobattleye` before going Online.
 
@@ -319,9 +333,12 @@ macOS / Linux are **not** supported (DirectInput + GTA Enhanced on Windows).
 
 1. Install **MOZA Pit House**; MOZA base connected (R3 / R5 / R9 / …).
 2. In Pit House: **Wheel Spring = 0%** (the app synthesizes SAT); Hands-Off Protection preferably Off.
-3. Open **GTA Moza Drive** → set the **GTA V Enhanced** folder.
-4. Click **Turn on Story Mode** (downloads/installs Script Hook + `GTAMOZA.dll` as needed).
-5. Launch via **Launch Story Mode** (Steam: `-nobattleye`) or your own BattlEye-off shortcut.
+3. Open **GTA Moza Drive**.
+4. **Fast path:** **Launch Story Mode (no BattlEye)** — pick folder (if missing), install Script Hook + `GTAMOZA.dll`, start the game.
+   - **Steam** — `-nobattleye` via Steam.
+   - **Rockstar / Epic** — disable BattlEye in the launcher once, then the same button; Rockstar uses `PlayGTAV.exe`, not Steam.
+   - **Enable for Story Mode** alone if you only need hooks without launching.
+5. **Rockstar** installs often need a one-time **UAC** prompt so hooks can write into the read-only game folder.
 6. Enable FFB in the app, get in a vehicle — the rim should come alive.
 
 In-game plugin hot-reload: **F11** (subtitle `GTAMOZA Hot-reload OK`).
@@ -384,7 +401,7 @@ GTA Moza Drive ── UDP 29756 ── FFB cmd ──► gtamoza-ffb.exe
 
 ## 🧲 FFB physics system
 
-GTA does not expose tire aligning torque. GTAMOZA approximates a sim-like feel: **one return spring** + **mechanical column** + **game effects without DC pull into the turn**.
+GTA does not expose tire aligning torque. GTAMOZA approximates a sim / **MOZA + other-games** feel: **one return spring** + **mechanical column** + **game effects without DC pull into the turn**. Road grain (rev **33+**) targets **Forza Motorsport**–style busy asphalt, clear surface transitions, and sharp kerbs/bumps. UI in **2.3.0**: all rim forces live on the **FFB** tab; **Steering** is GTA mapping + Pit House readouts only.
 
 ### Layers (bottom → top)
 
@@ -392,7 +409,7 @@ GTA does not expose tire aligning torque. GTAMOZA approximates a sim-like feel: 
 ┌─────────────────────────────────────────────────────────┐
 │  Game effects (Electron)                                │
 │  road · kerb · grass · bump · slip · ABS · collision    │
-│  · engine — AC texture / impulses, no ±steer SAT        │
+│  · engine — Forza-like multi-band / impulses, no ±steer │
 ├─────────────────────────────────────────────────────────┤
 │  center / damp / friction / inertia command             │
 │  (load from speed, brake, slip — smoothed)              │
@@ -405,23 +422,24 @@ GTA does not expose tire aligning torque. GTAMOZA approximates a sim-like feel: 
 
 | Layer | Role | App slider |
 |---|---|---|
-| **SAT / center** | Speed-aware return-to-center (host spring) | Self-aligning torque |
-| **Damping** | Stability; gentle brake weight | Damping |
-| **Friction / Inertia** | Rim weight, anti-flick | Friction / Inertia |
-| **Road / Kerb / Grass** | Surface grain (quiet on asphalt) | Effects → Road / … |
-| **Suspension** | Bumps / heave (not steer pull) | Suspension |
-| **Wheel slip / ABS** | Grip loss, ABS pulse | Wheel slip / ABS |
-| **Collision** | Impacts; soft false hits under brake muted | Collision |
-| **Engine** | Light buzz under load | Engine |
-| **Overall / Smoothing** | Master gain & spike softener | Overall / Smoothing |
+| **SAT / center** | Speed-aware return-to-center (host spring, anti-ring on release) | FFB → Self-aligning torque |
+| **Damping** | Stability, brake weight, kills L/R ring | FFB → Damping |
+| **Friction / Inertia** | Rim weight (Pit House–style) | FFB → Friction / Inertia |
+| **Road / Kerb / Grass** | Surface grain (alive asphalt; kerb harder) | FFB → Road / … |
+| **Suspension** | Bumps / heave — short attack/decay (not steer pull) | FFB → Suspension |
+| **Wheel slip / ABS** | Grip loss; ABS as resistance pulse, not L/R yank | FFB → Wheel slip / ABS |
+| **Collision** | Impacts; braking is **not** treated as a hit | FFB → Collision |
+| **Engine** | Light buzz under load | FFB → Engine |
+| **Overall / Smoothing / Slew** | Master gain, softener, response rate | FFB → Master / Advanced |
 
 ### Tuning principles (factory profile)
 
 - **Pit House Wheel Spring = 0%** — otherwise two springs fight.
 - Return-to-center is **only** Self-aligning torque (host), never game-layer ±steer.
-- Calm asphalt; kerb and impacts read above it.
-- Braking adds column weight **smoothly** (damp/slew), without a side yank.
-- Factory defaults in the app are the **reference**; tweak sliders in the UI as you like.
+- Asphalt stays readable at cruise (Forza-busy); kerb and impacts punch through.
+- Hands-off release: soft spring + extra return damp — **no** endless L/R ringing.
+- Braking: smooth **damp/slew**, no sideways snap; decel ≠ impact (FFB tune rev **33+**).
+- Factory defaults are the **MOZA / other-games reference**; tweak sliders on **FFB**, no need to edit source.
 
 ### Polarity
 
@@ -442,7 +460,8 @@ GTA Enhanced  →  GTAMOZA.dll (UDP 29755 telemetry)
 ```
 
 - Plugin and `gtamoza-ffb` ship inside the installer (`extraResources`).
-- On Enable, the app copies `GTAMOZA.dll` into `…/Grand Theft Auto V Enhanced/scripts/`.
+- On Enable, the app downloads Script Hook + SHVDN when needed and copies `GTAMOZA.dll` into `…/scripts/`.
+- Hooks cache under `%AppData%/GTA Moza Drive/hooks-cache`. Download chain: Chromium → Node → PowerShell (TLS issues with dev-c.com).
 
 ---
 
@@ -455,6 +474,7 @@ git clone https://github.com/GoblinThug/GTAMOZA.git
 cd GTAMOZA
 npm install
 npm run fetch:shvdn
+npm run fetch:electron   # if npm cannot fetch Electron (ETIMEDOUT / SSL); see package.json electronDist
 npm run build:native
 npm run dev
 ```

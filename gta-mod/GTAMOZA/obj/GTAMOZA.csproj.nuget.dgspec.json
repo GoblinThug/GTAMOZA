@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj": {}
+    "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj": {}
   },
   "projects": {
-    "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj": {
+    "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+        "projectUniqueName": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
         "projectName": "GTAMOZA",
-        "projectPath": "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+        "projectPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
         "packagesPath": "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget",
-        "outputPath": "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\obj\\",
+        "outputPath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\gobli\\AppData\\Roaming\\NuGet\\NuGet.Config"

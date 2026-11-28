@@ -214,27 +214,27 @@ export const DEFAULT_STEERING: SteeringSettings = {
 }
 
 /**
- * Factory FFB baseline — strong, readable column for GTA Story Mode.
- * Pit House: Wheel Spring 0%, Hands-Off preferably Off.
+ * Factory FFB baseline — MOZA/Pit House–aligned column for GTA Story Mode
+ * (Game Force ≈ 100%, Wheel Spring 0%, mid damper/friction/inertia like other titles).
  */
 export const DEFAULT_FFB: FfbSettings = {
   overallStrength: 100,
   maximumTorque: 5.5,
-  selfAligningTorque: 58,
-  damping: 52,
-  friction: 18,
-  inertia: 20,
-  smoothing: 18,
-  slewRate: 52,
+  selfAligningTorque: 52,
+  damping: 48,
+  friction: 16,
+  inertia: 18,
+  smoothing: 12,
+  slewRate: 60,
   enabled: true,
 }
 
-/** Factory effects — fat road/kerb/slip texture; impacts still punch through. */
+/** Factory effects — Forza-busy road/kerb/suspension; impacts still punch through. */
 export const DEFAULT_EFFECTS: EffectsSettings = {
-  road: { enabled: true, strength: 62 },
-  kerb: { enabled: true, strength: 86 },
-  grass: { enabled: true, strength: 68 },
-  suspension: { enabled: true, strength: 80 },
+  road: { enabled: true, strength: 82 },
+  kerb: { enabled: true, strength: 94 },
+  grass: { enabled: true, strength: 74 },
+  suspension: { enabled: true, strength: 88 },
   wheelSlip: { enabled: true, strength: 58 },
   abs: { enabled: true, strength: 38 },
   collision: { enabled: true, strength: 88 },
@@ -242,7 +242,7 @@ export const DEFAULT_EFFECTS: EffectsSettings = {
 }
 
 /** Stored in profiles.json — bump to re-apply DEFAULT_* / builtin FFB presets. */
-export const FFB_TUNE_REVISION = 31
+export const FFB_TUNE_REVISION = 33
 
 export function createDefaultProfileSettings(): ProfileSettings {
   return {

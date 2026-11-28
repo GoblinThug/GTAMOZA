@@ -1,18 +1,18 @@
 {
   "version": 2,
-  "dgSpecHash": "ARnY6lmOqhY=",
+  "dgSpecHash": "McWyRzpqV/k=",
   "success": true,
   "projectFilePath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\tools\\ffb-host\\FfbHost.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\gobli\\.nuget\\packages\\sharpgen.runtime\\2.2.0-beta\\sharpgen.runtime.2.2.0-beta.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\sharpgen.runtime.com\\2.2.0-beta\\sharpgen.runtime.com.2.2.0-beta.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\vortice.directinput\\3.6.2\\vortice.directinput.3.6.2.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\vortice.directx\\3.6.2\\vortice.directx.3.6.2.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\vortice.mathematics\\1.9.2\\vortice.mathematics.1.9.2.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.13\\microsoft.netcore.app.ref.8.0.13.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.13\\microsoft.windowsdesktop.app.ref.8.0.13.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.13\\microsoft.aspnetcore.app.ref.8.0.13.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.13\\microsoft.netcore.app.host.win-x64.8.0.13.nupkg.sha512"
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\sharpgen.runtime\\2.2.0-beta\\sharpgen.runtime.2.2.0-beta.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\sharpgen.runtime.com\\2.2.0-beta\\sharpgen.runtime.com.2.2.0-beta.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\vortice.directinput\\3.6.2\\vortice.directinput.3.6.2.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\vortice.directx\\3.6.2\\vortice.directx.3.6.2.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\vortice.mathematics\\1.9.2\\vortice.mathematics.1.9.2.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.netcore.app.ref\\8.0.13\\microsoft.netcore.app.ref.8.0.13.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.windowsdesktop.app.ref\\8.0.13\\microsoft.windowsdesktop.app.ref.8.0.13.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.aspnetcore.app.ref\\8.0.13\\microsoft.aspnetcore.app.ref.8.0.13.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.netcore.app.host.win-x64\\8.0.13\\microsoft.netcore.app.host.win-x64.8.0.13.nupkg.sha512"
   ],
   "logs": []
 }

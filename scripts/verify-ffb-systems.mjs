@@ -22,10 +22,11 @@ function tireAligningTorque(opts) {
   return -shape * load * grip * opts.satGain * 0.36
 }
 
-function surfaceAmp(kind, speedF, roadStr = 0.18) {
-  if (kind === 'kerb') return (0.1 + speedF * 0.2) * 0.58
-  if (kind === 'grass') return (0.055 + speedF * 0.1) * 0.36
-  return (0.008 + speedF * 0.014) * roadStr
+/** Mirrors telemetry-bridge surfaceAmp ratios (rev 32 Forza-busy asphalt). */
+function surfaceAmp(kind, speedF, roadStr = 0.82) {
+  if (kind === 'kerb') return (0.26 + speedF * 0.48) * 0.94
+  if (kind === 'grass') return (0.15 + speedF * 0.26) * 0.74
+  return (0.055 + speedF * 0.095) * roadStr
 }
 
 function runPass(label, fn) {
@@ -144,8 +145,8 @@ for (let pass = 1; pass <= 3; pass++) {
   })
 
   check('cruise diCap < impact diCap', () => {
-    const cruiseCap = 2800
-    const impactCap = 7200
+    const cruiseCap = 6800
+    const impactCap = 9000
     assert.ok(cruiseCap < impactCap)
   })
 }

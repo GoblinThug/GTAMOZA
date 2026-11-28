@@ -63,15 +63,12 @@
    - сцепление — по желанию (можно Skip).
 4. Показатели педалей — в **%**.
 
-### Руль / FFB / Эффекты
+### Руль / FFB
 
-1. Включите **FFB enabled**.
-2. Начните с профиля **Default** (или Sports / Supercars / Drift / Offroad).
-3. Слайдеры:
-   - **Overall** — общая сила игровых эффектов;
-   - **Self-aligning torque (SAT)** — возврат шины на ходу (не park-magnet);
-   - **Damping / Friction / Inertia** — стабильность и «вес» колонки в стеке GTAMOZA;
-   - эффекты: дорога, бордюр, grass, подвеска, slip, ABS, collision, engine.
+1. **FFB** — всё ощущение обода в одном месте: Master → колонка (SAT / damper / friction / inertia, как в Pit House) → дорога и события. В Pit House: **Wheel Spring = 0%**.
+2. **Руль** — только маппинг в GTA + чтение угла / soft lock / момента из Pit House (без дублей FFB).
+3. Начните с профиля **Default** (или Sports / Supercars / Drift / Offroad).
+4. Завод (rev **33+**): колонка как в других играх на MOZA + Forza-busy зерно дороги. Если обод слишком busy — опустите **Дорога** / **Двигатель**.
 
 ---
 
@@ -242,11 +239,12 @@ MOZA pedals optional; calibrate in the app.
 3. **Calibrate pedals**: full throttle → Remember; full brake → Remember; clutch optional (Skip).
 4. Pedal readouts are in **%**.
 
-### Steering / FFB / Effects
+### Steering / FFB
 
-1. Enable **FFB**.
-2. Start from profile **Default** (or Sports / Supercars / Drift / Offroad).
-3. Key sliders: Overall, SAT, Damping / Friction / Inertia, plus surface/event effects.
+1. **FFB** — all rim feel in one place: Master → column (SAT / damper / friction / inertia, Pit House–style) → road & events. In Pit House: **Wheel Spring = 0%**.
+2. **Steering** — GTA input mapping only + read-only wheel angle / soft lock / torque from Pit House (no duplicated FFB sliders).
+3. Start from profile **Default** (or Sports / Supercars / Drift / Offroad).
+4. Factory (rev **33+**): MOZA-like column + Forza-busy road grain. If the rim feels too lively, lower **Road** / **Engine**.
 
 ---
 

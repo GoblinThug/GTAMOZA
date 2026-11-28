@@ -104,8 +104,15 @@ let prevCollisionTel = 0
 let collisionDir = 1
 let latLoadSm = 0
 let prevDiMag = 0
+/** Distance-coupled road texture phases (Forza-style multi-band grain). */
 let roadPhase = 0
 let roadPhase2 = 0
+let roadPhase3 = 0
+let roadPhase4 = 0
+/** Rising-edge bump / kerb strike impulse (attack → decay). */
+let bumpImpulse = 0
+let prevBumpRaw = 0
+let prevSurfKind = ''
 /** Smoothed brake for FFB only — kills the rim yank on pedal bite. */
 let brakeFeelSm = 0
 let dampCmdSm = 0
@@ -274,16 +281,16 @@ function matGrain(matId: number | undefined): number {
 }
 
 function surfaceAmp(kind: string, speedF: number, feelRoad: number): number {
-  if (kind === 'kerb') return (0.22 + speedF * 0.42) * effectStrength('kerb')
+  if (kind === 'kerb') return (0.26 + speedF * 0.48) * effectStrength('kerb')
   if (kind === 'dirt')
     return (
-      (0.14 + speedF * 0.24) *
+      (0.16 + speedF * 0.28) *
       (effectStrength('grass') * 0.65 + effectStrength('road') * 0.3)
     )
-  if (kind === 'grass') return (0.13 + speedF * 0.22) * effectStrength('grass')
-  if (kind === 'sand') return (0.14 + speedF * 0.22) * effectStrength('grass')
-  // Asphalt grain — strong enough to feel at cruise, still AC-ish (no DC pull)
-  return (0.032 + speedF * 0.058) * effectStrength('road') * feelRoad
+  if (kind === 'grass') return (0.15 + speedF * 0.26) * effectStrength('grass')
+  if (kind === 'sand') return (0.16 + speedF * 0.26) * effectStrength('grass')
+  // Forza-busy asphalt grain — readable at cruise, still unsigned (no DC pull)
+  return (0.055 + speedF * 0.095) * effectStrength('road') * feelRoad
 }
 
 /** Surface grip scalar for the tire model (asphalt ≈ 1, kerb lower traction / more grain). */
@@ -317,6 +324,8 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
     tireSm = 0
     prevDiMag = 0
     latLoadSm = 0
+    bumpImpulse = 0
+    prevBumpRaw = 0
     return { mag: 0, parts: empty(0) }
   }
   if (!t.inVehicle) {
@@ -325,6 +334,8 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
     brakeFeelSm *= 0.85
     dampCmdSm *= 0.85
     latLoadSm *= 0.85
+    bumpImpulse *= 0.5
+    prevBumpRaw = 0
     const diMag = Math.round(magSm * 10000)
     prevDiMag = diMag
     return { mag: diMag, parts: empty(diMag) }
@@ -351,13 +362,16 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
   brakeFeelSm += (brakeRaw - brakeFeelSm) * brakeAtk
   const brakeF = brakeFeelSm
   const throttle = clamp(t.throttle, 0, 1)
-  const turnActivity = clamp(Math.abs(steer) * 1.35 + yawLoad * 0.85, 0, 1)
-  /** Straight-line braking — mute lateral FFB artifacts (weight transfer, ABS buzz). */
-  const brakeStraight = brakeF > 0.22 && turnActivity < 0.26
+  const steerAbs = Math.abs(steer)
+  const turnActivity = clamp(steerAbs * 1.35 + yawLoad * 0.85, 0, 1)
+  /** Straight / mild-turn braking — mute lateral FFB artifacts (was yanking on brake bite). */
+  const brakeStraight = brakeF > 0.18 && steerAbs < 0.28 && yawLoad < 0.42
+  /** Any meaningful brake — kill signed lateral cues even if yaw noise is present. */
+  const brakeMuteLat = brakeF > 0.22 && steerAbs < 0.45
   const latLoadIn =
-    latAbs * clamp(turnActivity * 1.15 + (brakeStraight ? 0.08 : 0.35), 0, 1)
+    latAbs * clamp(turnActivity * 1.15 + (brakeMuteLat ? 0.05 : 0.35), 0, 1)
   latLoadSm += (latLoadIn - latLoadSm) * (latLoadIn > latLoadSm ? 0.08 : 0.16)
-  if (brakeStraight && brakeF > 0.4) latLoadSm *= 0.94
+  if (brakeMuteLat && brakeF > 0.35) latLoadSm *= 0.88
 
   const surf = t.surface || 'asphalt'
   const plainRoad = surf === 'asphalt' || surf === 'none' || surf === 'concrete'
@@ -382,95 +396,132 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
 
   const grain = plainRoad ? 0.92 + (matGrain(t.matId) - 1) * 0.35 : matGrain(t.matId)
   const dt = 1 / 60
-  const roadHz = plainRoad
-    ? (1.8 + t.speed * 0.18) * grain
-    : (4.8 + t.speed * 0.48) * (0.92 + 0.08 * grain)
-  roadPhase += roadHz * dt
-  roadPhase2 += (plainRoad ? 0.95 + t.speed * 0.07 : 2.1 + t.speed * 0.16) * dt
-  const roadPhase3 = roadPhase * (plainRoad ? 1.12 : 1.45)
+  // Distance-coupled multi-band grain — pitch tracks road speed (Forza / sim style)
+  const dist = Math.max(0, t.speed) * dt
+  const matSeed = (Math.abs(t.matId ?? 0) % 97) / 96
+  if (plainRoad) {
+    roadPhase += dist * (0.42 + 0.08 * grain)
+    roadPhase2 += dist * (1.35 + 0.25 * grain)
+    roadPhase3 += dist * (3.2 + 0.55 * matSeed)
+    roadPhase4 += dist * (7.8 + 1.2 * grain)
+  } else {
+    roadPhase += dist * (0.85 + 0.2 * grain)
+    roadPhase2 += dist * (2.4 + 0.4 * grain)
+    roadPhase3 += dist * (5.5 + 0.8 * matSeed)
+    roadPhase4 += dist * (11 + 1.5 * grain)
+  }
+  const twoPi = Math.PI * 2
   const tex = plainRoad
-    ? Math.sin(roadPhase * Math.PI * 2) * 0.85 + Math.sin(roadPhase2 * Math.PI * 2) * 0.15
-    : Math.sin(roadPhase * Math.PI * 2) * 0.62 +
-      Math.sin(roadPhase2 * Math.PI * 2) * 0.26 +
-      Math.sin(roadPhase3 * Math.PI * 2) * 0.12 * grain
+    ? Math.sin(roadPhase * twoPi) * 0.38 +
+      Math.sin(roadPhase2 * twoPi) * 0.32 +
+      Math.sin(roadPhase3 * twoPi) * 0.22 * grain +
+      Math.sin(roadPhase4 * twoPi) * 0.08 * (0.85 + 0.15 * matSeed)
+    : Math.sin(roadPhase * twoPi) * 0.42 +
+      Math.sin(roadPhase2 * twoPi) * 0.28 +
+      Math.sin(roadPhase3 * twoPi) * 0.2 * grain +
+      Math.sin(roadPhase4 * twoPi) * 0.1
 
   let surface = tex * surfaceAmp(surf, speedF, feel.road) * crawlGate * grain
   const sL = t.surfL || surf
   const sR = t.surfR || surf
-  if (sL !== sR && crawlGate > 0.4 && brakeF < 0.5 && turnActivity > 0.2) {
+  // Tiny L/R bias only while turning — DC mismatch was pumping L/R ring when released
+  if (sL !== sR && crawlGate > 0.4 && !brakeMuteLat && turnActivity > 0.35) {
     const aL = surfaceAmp(sL, speedF, feel.road)
     const aR = surfaceAmp(sR, speedF, feel.road)
-    surface += clamp((aR - aL) * 0.16, -0.035, 0.035)
+    surface += clamp((aR - aL) * 0.14, -0.03, 0.03)
   }
-  if ((surf === 'kerb' || surf === 'dirt') && brakeF < 0.6) {
-    surface += Math.sin(Date.now() / 55) * Math.abs(surface) * 0.1
+  if ((surf === 'kerb' || surf === 'dirt') && brakeF < 0.55) {
+    surface += Math.sin(Date.now() / 48) * Math.abs(surface) * 0.1
   }
 
   const bumpRaw = clamp(t.bump ?? 0, 0, 1)
-  const bumpIn = plainRoad && bumpRaw < 0.07 ? 0 : bumpRaw
-  bumpSm += (bumpIn - bumpSm) * (bumpIn > bumpSm ? 0.42 : 0.22)
+  const bumpIn = plainRoad && bumpRaw < 0.05 ? 0 : bumpRaw
+  bumpSm += (bumpIn - bumpSm) * (bumpIn > bumpSm ? 0.55 : 0.18)
+  // Attack/decay impulse on rising heave and asphalt→kerb edges
+  if (bumpIn > prevBumpRaw + 0.04) {
+    bumpImpulse = Math.max(
+      bumpImpulse,
+      clamp(bumpIn * (plainRoad ? 0.55 : 0.9), 0.12, 0.95),
+    )
+  }
+  if (surf === 'kerb' && prevSurfKind !== 'kerb' && crawlGate > 0.3) {
+    bumpImpulse = Math.max(bumpImpulse, 0.35 + 0.28 * speedF)
+  }
+  prevBumpRaw = bumpIn
+  prevSurfKind = surf
+  bumpImpulse *= 0.82
+  // Signed roll lean under brake = hard L/R yank — only when turning, never under brakeMuteLat
   const roll = t.rollRate ?? 0
   const rollLean =
-    Math.abs(roll) > 0.4
+    !brakeMuteLat && Math.abs(roll) > 0.55 && turnActivity > 0.3
       ? -Math.sign(roll) *
-        clamp(Math.abs(roll) * 0.2, 0, 0.07) *
+        clamp(Math.abs(roll) * 0.12, 0, 0.04) *
         susp *
         feel.live *
-        crawlGate *
-        (1 - brakeF * 0.5)
+        crawlGate
       : 0
-  const bumpBrakeGate = brakeStraight
-    ? clamp(1 - brakeF * 0.78, 0.12, 1)
+  const bumpBrakeGate = brakeMuteLat
+    ? clamp(1 - brakeF * 0.85, 0.08, 1)
     : 1 - brakeF * 0.25
-  const bump =
-    bumpSm < 0.06
-      ? rollLean * bumpBrakeGate
-      : (0.5 + 0.5 * Math.sin(Date.now() / 42)) *
-          bumpSm *
-          (plainRoad ? 0.34 : 0.55) *
-          susp *
-          feel.live *
-          crawlGate *
-          bumpBrakeGate +
-        rollLean * bumpBrakeGate
+  // Bump body is unsigned pulse (AC) — signed DC body was fighting the spring
+  const bumpPulse = 0.5 + 0.5 * Math.sin(Date.now() / 36)
+  const bumpBody =
+    bumpSm < 0.05
+      ? 0
+      : bumpPulse * bumpSm * (plainRoad ? 0.34 : 0.5) * susp * feel.live * crawlGate
+  const bumpHit =
+    bumpImpulse *
+    (0.55 + 0.45 * Math.sin(Date.now() / 28)) *
+    (surf === 'kerb' ? 1.1 : 1) *
+    susp *
+    feel.live *
+    crawlGate
+  const bump = (bumpBody + bumpHit + rollLean) * bumpBrakeGate
 
   const slipAmp = slipSm * (0.9 + 0.55 * heat)
+  // Always unsigned slip buzz — signed sin was alternating L/R when released / braking
   const wheelSlip =
     slipSm < 0.07
       ? 0
-      : (brakeStraight ? 0.5 + 0.5 * Math.sin(Date.now() / 48) : Math.sin(Date.now() / 48)) *
+      : (0.5 + 0.5 * Math.sin(Date.now() / 48)) *
         slipAmp *
-        (plainRoad ? 0.24 : 0.42) *
+        (plainRoad ? 0.2 : 0.36) *
         effectStrength('wheelSlip') *
         feel.live *
         crawlGate *
-        (brakeStraight ? clamp(1 - brakeF * 0.55, 0.25, 1) : 1)
+        (brakeMuteLat ? clamp(1 - brakeF * 0.7, 0.15, 1) : 1)
 
   const colRaw = clamp(t.collision ?? 0, 0, 1)
   const colHard = clamp(t.colHard ?? 0.55, 0, 1)
-  // Ignore soft "hits" under braking on a straight — they yank the rim sideways
+  // Brake decelerations are NOT wall hits — require real damage / hard lateral impact
   const colArm =
-    !brakeStraight &&
-    (colHard > 0.62 || colRaw > 0.2 || (turnActivity > 0.25 && colRaw > 0.1))
-  const colTarget = colArm && colRaw > 0.05 ? colRaw : 0
-  const rise = colHard > 0.65 ? 0.78 : 0.48
-  collisionSm += (colTarget - collisionSm) * (colTarget > collisionSm ? rise : 0.16)
-  if (colArm && colRaw > 0.08 && colRaw > prevCollisionTel + 0.03) {
-    const spike = colRaw * (0.7 + 0.55 * colHard)
+    !(brakeMuteLat && colHard < 0.82) &&
+    (colHard > 0.72 ||
+      colRaw > 0.28 ||
+      (turnActivity > 0.4 && colRaw > 0.18 && colHard > 0.55))
+  const colTarget = colArm && colRaw > 0.08 ? colRaw : 0
+  const rise = colHard > 0.7 ? 0.7 : 0.4
+  collisionSm += (colTarget - collisionSm) * (colTarget > collisionSm ? rise : 0.14)
+  if (colArm && colRaw > 0.1 && colRaw > prevCollisionTel + 0.04) {
+    const spike = colRaw * (0.65 + 0.45 * colHard)
     collisionImpulse = Math.max(
       collisionImpulse,
-      clamp(spike, 0.2 + 0.15 * colHard, 0.72 + 0.22 * colHard),
+      clamp(spike, 0.18 + 0.12 * colHard, 0.65 + 0.2 * colHard),
     )
-    if (turnActivity > 0.22) {
+    if (!brakeMuteLat && turnActivity > 0.35) {
       const dirHint = -Math.sign(latAccel || collisionDir || 1)
       if (dirHint !== 0) collisionDir = dirHint
     }
   }
   prevCollisionTel = colRaw
-  collisionImpulse *= colHard > 0.65 ? 0.78 : 0.86
+  collisionImpulse *= colHard > 0.7 ? 0.76 : 0.82
   if (!colArm) {
-    collisionSm *= 0.5
-    collisionImpulse *= 0.4
+    collisionSm *= 0.4
+    collisionImpulse *= 0.3
+  }
+  if (brakeMuteLat) {
+    collisionSm *= 0.25
+    collisionImpulse *= 0.2
   }
   const colGain = effectStrength('collision')
   let collision = 0
@@ -478,21 +529,26 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
     collisionSm *= 0.6
     collisionImpulse *= 0.45
   } else if (collisionSm > 0.02 || collisionImpulse > 0.02) {
-    const body = collisionSm * (0.28 + 0.22 * (1 - colHard * 0.4))
-    const thump = collisionImpulse * (0.55 + 0.4 * colHard)
+    const body = collisionSm * (0.22 + 0.18 * (1 - colHard * 0.4))
+    const thump = collisionImpulse * (0.48 + 0.35 * colHard)
     const chatter =
-      colHard > 0.65 && collisionImpulse > 0.22 && movingGate > 0.35
-        ? Math.sin(Date.now() / 20) * collisionImpulse * 0.14 * colHard
+      !brakeMuteLat &&
+      colHard > 0.7 &&
+      collisionImpulse > 0.25 &&
+      movingGate > 0.35
+        ? Math.sin(Date.now() / 20) * collisionImpulse * 0.1 * colHard
         : 0
     const crawlMute =
-      collisionImpulse > 0.35 || colHard > 0.7
+      collisionImpulse > 0.35 || colHard > 0.75
         ? clamp(0.55 + t.speed / 14, 0.55, 1)
         : clamp((t.speed - 1.2) / 7, 0.2, 1)
-    collision = clamp(
-      collisionDir * (body + thump + chatter) * colGain * crawlMute,
-      -0.9,
-      0.9,
-    )
+    // Under brake: unsigned thump only (no sticky L/R shove)
+    const signed =
+      brakeMuteLat || turnActivity < 0.2
+        ? 0.5 + 0.5 * Math.sin(Date.now() / 22)
+        : collisionDir
+    collision = clamp((body + thump + chatter) * signed * colGain * crawlMute, -0.75, 0.75)
+    if (brakeMuteLat) collision *= 0.35
   }
 
   const engineGate =
@@ -515,49 +571,56 @@ function computeMagnitude(t: GtaTelemetry): { mag: number; parts: FfbEffectParts
     abs = pulse * absAmp * effectStrength('abs') * slipSm
   }
 
-  const roadBrakeCalm = brakeStraight
-    ? clamp(0.38 + 0.22 * turnActivity - brakeF * 0.12, 0.28, 0.55)
+  const roadBrakeCalm = brakeMuteLat
+    ? clamp(0.32 + 0.18 * turnActivity - brakeF * 0.14, 0.22, 0.5)
     : 1
-  if (brakeStraight) surface *= roadBrakeCalm
+  if (brakeMuteLat) surface *= roadBrakeCalm
 
-  // Keep cruise texture readable — asphalt used to be gated into near-silence
-  const textureBrakeGate = brakeStraight ? clamp(1 - brakeF * 0.48, 0.38, 1) : 1
+  // Forza-busy cruise — calm under brake so signed grain cannot yank
+  const textureBrakeGate = brakeMuteLat ? clamp(1 - brakeF * 0.55, 0.28, 1) : 1
   const textureSum = (surface + bump + wheelSlip + engine + abs) * textureBrakeGate
-  const impactHit = collisionImpulse > 0.16 || bumpSm > 0.28 || surf === 'kerb'
+  const impactHit =
+    !brakeMuteLat &&
+    (collisionImpulse > 0.2 || bumpSm > 0.32 || bumpImpulse > 0.28 || surf === 'kerb')
   const cruiseCalm =
     plainRoad && !impactHit
-      ? brakeStraight
-        ? clamp(0.4 + 0.28 * turnActivity, 0.35, 0.62)
-        : 0.58 + 0.22 * turnActivity + 0.12 * brakeF + 0.1 * throttle
+      ? brakeMuteLat
+        ? clamp(0.4 + 0.22 * turnActivity, 0.35, 0.65)
+        : 0.78 + 0.12 * turnActivity + 0.06 * brakeF + 0.06 * throttle
       : 1
   const tirePart = (suspensionLat + suspensionYaw + understeer) * master * 0.82 * feel.live
-  const texPart = textureSum * master * 0.92 * feel.live * clamp(cruiseCalm, 0.5, 1)
+  const texPart = textureSum * master * 0.95 * feel.live * clamp(cruiseCalm, 0.68, 1)
   const colPart =
-    collision * master * 0.82 * feel.live * (brakeStraight && colHard < 0.7 ? 0.35 : 1)
-  let scaled = (tirePart + texPart + colPart) * (brakeStraight ? 1 - brakeF * 0.28 : 1 - brakeF * 0.18)
+    collision * master * 0.75 * feel.live * (brakeMuteLat ? 0.2 : 1)
+  let scaled =
+    (tirePart + texPart + colPart) * (brakeMuteLat ? 1 - brakeF * 0.4 : 1 - brakeF * 0.15)
   if (movingGate < 0.12) {
     scaled *= movingGate / 0.12
     magSm *= 0.72
     tireSm *= 0.85
   }
-  const reconBoost = brakeStraight
-    ? clamp((1 - turnActivity) * 0.06, 0, 0.12)
-    : clamp(brakeF * 0.18 + (1 - turnActivity) * (plainRoad ? 0.1 : 0.05), 0, 0.35)
-  const alphaBase = 0.16 + (1 - smoothSet) * 0.28
+  const reconBoost = brakeMuteLat
+    ? clamp((1 - turnActivity) * 0.1 + brakeF * 0.12, 0, 0.28)
+    : clamp(brakeF * 0.12 + (1 - turnActivity) * (plainRoad ? 0.08 : 0.04), 0, 0.28)
+  const alphaBase = 0.14 + (1 - smoothSet) * 0.24
   const alpha = impactHit
-    ? Math.min(0.92, alphaBase + 0.48 + 0.22 * colHard)
-    : alphaBase * (1 - reconBoost * 0.3)
-  magSm += (scaled - magSm) * Math.max(0.08, alpha)
+    ? Math.min(0.88, alphaBase + 0.42 + 0.18 * colHard)
+    : alphaBase * (1 - reconBoost * 0.45)
+  magSm += (scaled - magSm) * Math.max(0.06, alpha)
+  // Kill residual signed bias near center / under brake (stops L/R pump)
+  if (brakeMuteLat || (steerAbs < 0.08 && Math.abs(magSm) < 0.04)) {
+    magSm *= brakeMuteLat ? 0.72 : 0.85
+  }
   if (Math.abs(magSm) < 0.01 && movingGate < 0.25) magSm = 0
 
-  const diCap = impactHit ? 9000 : plainRoad ? 5600 : 7200
+  const diCap = impactHit ? 8500 : brakeMuteLat ? 4200 : plainRoad ? 6200 : 7200
   let diMag = Math.round(clamp(magSm * 10000, -diCap, diCap))
   const slewSet = clamp((ffbSettings.slewRate ?? 40) / 100, 0, 1)
-  // Under brake: slower game-force slew (kills lateral snap) — less cut than before
-  const brakeSlewCut = brakeStraight ? 1 - brakeF * 0.62 : 1 - brakeF * 0.45
-  const cruiseSlewCut = plainRoad && !impactHit ? (brakeStraight ? 0.72 : 0.88) : 1
+  // Under brake: very slow game-force slew — kills the sharp sideways snap
+  const brakeSlewCut = brakeMuteLat ? 1 - brakeF * 0.78 : 1 - brakeF * 0.35
+  const cruiseSlewCut = plainRoad && !impactHit ? (brakeMuteLat ? 0.55 : 0.88) : 1
   const maxStep = Math.round(
-    (700 + 3200 * slewSet + (impactHit ? 3800 : 0)) * brakeSlewCut * cruiseSlewCut,
+    (550 + 2600 * slewSet + (impactHit ? 3200 : 0)) * brakeSlewCut * cruiseSlewCut,
   )
   const delta = diMag - prevDiMag
   if (Math.abs(delta) > maxStep) {
@@ -761,38 +824,46 @@ function sendFfbCommand(magnitude: number) {
   const yawAbs = clamp(Math.abs(lastTelemetry?.yawRate ?? 0) / 2.4, 0, 1)
   const turnGate = clamp(steerAbs * 1.3 + yawAbs * 0.8, 0, 1)
   const brakeStraightLive =
-    brakeFeelSm > 0.22 && clamp(Math.abs(lastTelemetry?.steer ?? 0) * 1.35, 0, 1) < 0.28
-  const latLoad = latLoadSm * (0.15 + 0.85 * turnGate) * (brakeStraightLive ? 0.35 : 1)
+    brakeFeelSm > 0.18 && steerAbs < 0.32
+  const latLoad = latLoadSm * (0.12 + 0.8 * turnGate) * (brakeStraightLive ? 0.2 : 1)
   const tireLoad = clamp(tireSm, 0, 1.35)
   const feel = vehicleFeel(lastTelemetry?.vehicle ?? '')
-  // Host-only centering — load makes it heavier in turns, never yanks into the lock
+  // Host-only centering — soften under brake so release doesn't slingshot L/R
   const center = clamp(
     satGain *
-      (0.08 + 0.62 * speedSat) *
-      (0.9 + 0.12 * latLoad * speedSat + 0.18 * tireLoad * (1 - brakeFeelSm * 0.45)) *
+      (0.08 + 0.58 * speedSat) *
+      (0.9 + 0.1 * latLoad * speedSat + 0.16 * tireLoad * (1 - brakeFeelSm * 0.5)) *
       feel.spring *
-      (1 - brakeFeelSm * 0.12),
+      (1 - brakeFeelSm * 0.22),
     0,
-    0.78,
+    0.72,
   )
   const dampBase =
-    ((ffbSettings?.damping ?? 55) / 100) * (0.72 + 0.28 * speedF)
-  // Gentle brake weight — was +0.42 and snapped damp → side yank
+    ((ffbSettings?.damping ?? 55) / 100) * (0.75 + 0.25 * speedF)
+  // Extra damp under brake + near-center — kills hands-off ring and brake yank
   const dampTarget = clamp(
     dampBase +
-      brakeFeelSm * (brakeStraightLive ? 0.28 : 0.16) +
-      (1 - turnGate) * 0.1 +
-      (brakeStraightLive ? brakeFeelSm * 0.14 : 0),
+      brakeFeelSm * (brakeStraightLive ? 0.36 : 0.2) +
+      (1 - turnGate) * 0.14 +
+      (brakeStraightLive ? brakeFeelSm * 0.18 : 0),
     0,
     1,
   )
   if (dampCmdSm <= 0.001 && dampBase > 0) dampCmdSm = dampBase
-  dampCmdSm += (dampTarget - dampCmdSm) * (dampTarget > dampCmdSm ? 0.07 : 0.22)
+  dampCmdSm += (dampTarget - dampCmdSm) * (dampTarget > dampCmdSm ? 0.09 : 0.2)
   const damp = dampCmdSm
   // Kill friction/inertia chatter when parked / crawling (noise → rim buzz)
   const mechGate = clamp((speedMs - 0.35) / 2.2, 0, 1)
-  const friction = clamp(((ffbSettings?.friction ?? 12) / 100) * mechGate, 0, 1)
-  const inertia = clamp(((ffbSettings?.inertia ?? 14) / 100) * mechGate, 0, 1)
+  const friction = clamp(
+    ((ffbSettings?.friction ?? 12) / 100) * mechGate * (brakeStraightLive ? 0.55 : 1),
+    0,
+    1,
+  )
+  const inertia = clamp(
+    ((ffbSettings?.inertia ?? 14) / 100) * mechGate * (brakeStraightLive ? 0.4 : 1),
+    0,
+    1,
+  )
   const payload = Buffer.from(
     JSON.stringify({
       magnitude,

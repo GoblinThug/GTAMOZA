@@ -2,11 +2,13 @@ type Props = {
   checked: boolean
   onChange: (checked: boolean) => void
   label?: string
+  /** Accessible name when rendering the compact (no-label) switch. */
+  ariaLabel?: string
   description?: string
   disabled?: boolean
 }
 
-export function Toggle({ checked, onChange, label, description, disabled }: Props) {
+export function Toggle({ checked, onChange, label, ariaLabel, description, disabled }: Props) {
   if (!label) {
     return (
       <button
@@ -14,6 +16,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: Prop
         className="toggle"
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel}
         data-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}

@@ -13,14 +13,17 @@ export function SteeringPage() {
     baseSync,
     serialStatus,
     refreshBaseSync,
+    setPage,
   } = useAppStore()
   const toast = useToast()
   const { t } = useI18n()
   const s = activeSettings.steering
-  const ffb = activeSettings.ffb
   const [syncing, setSyncing] = useState(false)
   const shownAngle =
     serialStatus.wheelAngleDeg ?? baseSync?.raw.wheelAngleDeg ?? s.wheelAngle
+  const softLock = baseSync?.raw.softLock ?? s.softLock
+  const maxTorque =
+    baseSync?.ffb.maximumTorque ?? activeSettings.ffb.maximumTorque ?? 5.5
 
   const onSync = async () => {
     setSyncing(true)
@@ -73,48 +76,29 @@ export function SteeringPage() {
             : t('sync.waitBase')}
       </div>
 
-      <Card title={t('steering.feelTitle')} subtitle={t('steering.feelSubtitle')}>
-        <div className="stack" style={{ padding: '4px 16px 8px' }}>
-          <Slider
-            label={t('ffb.overall')}
-            description={t('ffb.overallDesc')}
-            value={ffb.overallStrength ?? 100}
-            disabled={ffb.enabled === false}
-            onChange={(overallStrength) =>
-              updateActiveSettings({ ffb: { ...ffb, overallStrength } })
-            }
-          />
-          <Slider
-            label={t('ffb.centering')}
-            description={t('ffb.centeringDesc')}
-            value={ffb.selfAligningTorque ?? 62}
-            disabled={ffb.enabled === false}
-            onChange={(selfAligningTorque) =>
-              updateActiveSettings({ ffb: { ...ffb, selfAligningTorque } })
-            }
-          />
-          <Slider
-            label={t('ffb.damping')}
-            description={t('ffb.dampingDesc')}
-            value={ffb.damping ?? 30}
-            disabled={ffb.enabled === false}
-            onChange={(damping) => updateActiveSettings({ ffb: { ...ffb, damping } })}
-          />
-          <Slider
-            label={t('ffb.friction')}
-            description={t('ffb.frictionDesc')}
-            value={ffb.friction ?? 15}
-            disabled={ffb.enabled === false}
-            onChange={(friction) => updateActiveSettings({ ffb: { ...ffb, friction } })}
-          />
-          <Slider
-            label={t('ffb.inertia')}
-            description={t('ffb.inertiaDesc')}
-            value={ffb.inertia ?? 14}
-            disabled={ffb.enabled === false}
-            onChange={(inertia) => updateActiveSettings({ ffb: { ...ffb, inertia } })}
-          />
+      <Card title={t('steering.hardwareTitle')} subtitle={t('steering.hardwareSubtitle')}>
+        <div className="hardware-readouts">
+          <div className="hardware-readout">
+            <span className="hardware-readout-label">{t('steering.wheelAngle')}</span>
+            <strong className="hardware-readout-value">{shownAngle}°</strong>
+          </div>
+          <div className="hardware-readout">
+            <span className="hardware-readout-label">{t('steering.softLock')}</span>
+            <strong className="hardware-readout-value">
+              {softLock ? t('common.enabled') : t('common.disabled')}
+            </strong>
+          </div>
+          <div className="hardware-readout">
+            <span className="hardware-readout-label">{t('steering.maxTorque')}</span>
+            <strong className="hardware-readout-value">{maxTorque.toFixed(1)} Nm</strong>
+          </div>
         </div>
+        <p className="hardware-hint">
+          {t('steering.ffbHint')}{' '}
+          <button type="button" className="link-btn" onClick={() => setPage('effects')}>
+            {t('nav.effects')}
+          </button>
+        </p>
       </Card>
 
       <Card title={t('steering.gtaMapTitle')} subtitle={t('steering.gtaMapSubtitle')}>

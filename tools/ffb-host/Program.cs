@@ -363,67 +363,82 @@ static class Program
                     }
 
                     // MOZA-style stack: game mag + SAT spring + damper + friction + inertia
-                    // "Falls off center" fix: stronger notch near 0, friction must NOT fight return.
+                    // Anti-ring: soft spring through center + extra return damp (kills L/R when released).
                     double dNorm = norm - prevNorm;
                     double dAcc = dNorm - prevDNorm;
                     prevDNorm = dNorm;
                     prevNorm = norm;
                     double turnRate = Math.Abs(dNorm);
                     double absN = Math.Abs(norm);
-                    double flickEase = 1.0 - Math.Min(0.25, turnRate * 14.0);
-                    // Column only when app sends non-zero gains (muted = all quiet / no GTA).
-                    double centerNotch = 1.0 + (1.0 - Math.Min(1.0, absN / 0.22)) * 0.12;
+                    double flickEase = 1.0 - Math.Min(0.28, turnRate * 14.0);
+                    bool returning =
+                        absN > 0.008 &&
+                        Math.Sign(dNorm) != 0 &&
+                        Math.Sign(dNorm) == -Math.Sign(norm);
+                    // Soften through center while moving — hard notch was overshooting into L/R ring
+                    double centerNotch =
+                        absN < 0.1 && turnRate > 0.0025
+                            ? 0.62
+                            : 1.0 + (1.0 - Math.Min(1.0, absN / 0.28)) * 0.05;
                     double springTarget =
                         centerGain < 0.001
                             ? 0.0
-                            : -norm * (1200 + 4200 * centerGain) * flickEase * centerNotch;
-                    springSm += (springTarget - springSm) * (centerGain < 0.001 ? 0.4 : 0.15);
-                    double centerDamp = 1.0 + (1.0 - Math.Min(1.0, absN / 0.14)) * 1.4;
-                    double dampRate = Math.Abs(dNorm) < 0.0004 ? 0.0 : dNorm;
+                            : -norm * (1100 + 3800 * centerGain) * flickEase * centerNotch;
+                    // Cap spring when slamming toward center (hands-off release)
+                    if (returning && turnRate > 0.004)
+                        springTarget *= Math.Max(0.45, 1.0 - turnRate * 18.0);
+                    springSm += (springTarget - springSm) * (centerGain < 0.001 ? 0.45 : 0.12);
+                    double centerDamp =
+                        1.0
+                        + (1.0 - Math.Min(1.0, absN / 0.16)) * 1.55
+                        + (returning ? 0.95 : 0.0);
+                    double dampRate = Math.Abs(dNorm) < 0.00035 ? 0.0 : dNorm;
                     double damper =
                         dampGain < 0.001
                             ? 0.0
-                            : -dampRate * (1100 + 4600 * dampGain) * centerDamp;
+                            : -dampRate * (1200 + 5200 * dampGain) * centerDamp;
                     // Friction: mechanical drag, but don't oppose return-to-center
                     double friction = 0;
                     if (turnRate > 0.00012 && frictionGain > 0.001)
                     {
-                        friction = -Math.Sign(dNorm) * (160 + 1700 * frictionGain);
-                        bool returning =
-                            Math.Abs(norm) > 0.008 &&
-                            Math.Sign(dNorm) == -Math.Sign(norm);
-                        if (returning) friction *= 0.12;
+                        friction = -Math.Sign(dNorm) * (140 + 1500 * frictionGain);
+                        if (returning) friction *= 0.08;
                     }
                     double inertia =
                         Math.Abs(dAcc) < 0.0005 || inertiaGain < 0.001
                             ? 0.0
-                            : -dAcc * (1000 + 5400 * inertiaGain);
+                            : -dAcc * (900 + 4200 * inertiaGain);
+                    // Hands-off ring often comes from inertia fighting spring — cut on return
+                    if (returning) inertia *= 0.35;
                     int mechOut = (int)Math.Round(
                         CenterPolarity * (springSm + damper + friction + inertia));
                     if (!telemLive && Math.Abs(mechOut) < 80)
                         mechOut = 0;
 
-                    // Let road/kerb texture through near center; mute only tiny noise.
-                    // Impacts always punch through.
+                    // Road grain through center; mute tiny noise. Soften game force while returning
+                    // so texture does not pump energy into the spring ring.
                     double gameScale = 1.0;
                     if (absN > 0.28)
                         gameScale = Math.Max(0.7, 1.0 - (absN - 0.28) * 0.75);
                     gameScale *= 0.96 + 0.04 * flickEase;
+                    if (returning)
+                        gameScale *= 0.55;
                     double gameAbs = Math.Abs(gameMag);
-                    double impactBypass = Math.Min(1.0, gameAbs / 900.0);
-                    if (absN < 0.03)
-                        gameScale *= 0.72 + (absN / 0.03) * 0.28 + impactBypass * 0.55;
+                    double impactBypass = Math.Min(1.0, gameAbs / 1200.0);
+                    if (absN < 0.04)
+                        gameScale *= 0.78 + (absN / 0.04) * 0.22 + impactBypass * 0.35;
                     gameScale = Math.Min(1.0, gameScale);
-                    // Tire Mz + textures/impacts use ForcePolarity (spring uses CenterPolarity).
+                    // Textures/impacts use ForcePolarity (spring uses CenterPolarity).
                     int blendedGame = (int)Math.Round(ForcePolarity * gameMag * gameScale);
-                    if (Math.Abs(blendedGame) < 90 && absN < 0.04 && gameAbs < 220)
+                    if (Math.Abs(blendedGame) < 80 && absN < 0.05 && gameAbs < 200)
                         blendedGame = 0;
                     int output = blendedGame + mechOut;
                     if (output > DiNominal) output = DiNominal;
                     if (output < -DiNominal) output = -DiNominal;
 
-                    // Soft slew for cruise; wide slew for impacts so hits are felt
-                    int maxOutStep = gameAbs > 2800 ? 6200 : gameAbs > 1000 ? 3600 : 1800;
+                    // Soft slew for cruise; wider for impacts; tighter while returning (anti-ring)
+                    int maxOutStep = gameAbs > 2800 ? 5200 : gameAbs > 1000 ? 2800 : 1400;
+                    if (returning) maxOutStep = Math.Min(maxOutStep, 1100);
                     if (lastOut == int.MinValue) lastOut = 0;
                     int dOut = output - lastOut;
                     if (dOut > maxOutStep) output = lastOut + maxOutStep;
