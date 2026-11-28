@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "sJZ0mXFKJJs=",
+  "dgSpecHash": "pvJhFArRkg8=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
+  "projectFilePath": "c:\\Users\\gobli\\Desktop\\Projects\\GTAMOZA\\gta-mod\\GTAMOZA\\GTAMOZA.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
-    "C:\\Users\\gobli\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\gobli\\AppData\\Local\\Temp\\cursor-sandbox-cache\\669bbc226e60562fb4efb56a67b6184e\\nuget\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
   ],
   "logs": []
 }

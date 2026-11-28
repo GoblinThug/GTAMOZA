@@ -13,6 +13,7 @@ import { promisify } from 'node:util'
 import { app, dialog, BrowserWindow, shell } from 'electron'
 import { resolvePluginDll } from './telemetry-bridge'
 import {
+  ensureGameFolderWritableAccess,
   ensureGameHooksInstalled,
   ensureShvdnReloadKeyF11,
   hooksMissingInGame,
@@ -528,6 +529,14 @@ export async function enableGtaIntegration(gamePath: string): Promise<GtaModResu
   }
 
   try {
+    const folderAccess = await ensureGameFolderWritableAccess(gamePath)
+    if (!folderAccess.ok) {
+      return {
+        ok: false,
+        status: buildStatus(gamePath),
+        error: folderAccess.error ?? 'game_folder_not_writable',
+      }
+    }
     // 1) Restore parked hooks first
     const parked = listParkedHooks(gamePath)
     for (const rel of parked) {
@@ -781,6 +790,14 @@ export function detectGtaStore(gamePath: string): GtaStoreKind {
   if (
     exists(path.join(gamePath, 'PlayGTAV.exe')) &&
     !exists(path.join(gamePath, 'steam_appid.txt'))
+  ) {
+    return 'rockstar'
+  }
+  if (
+    exists(path.join(gamePath, 'GTA5_Enhanced.exe')) &&
+    !exists(path.join(gamePath, 'steam_appid.txt')) &&
+    !exists(path.join(gamePath, '.egstore')) &&
+    !norm.includes('\\steamapps\\')
   ) {
     return 'rockstar'
   }

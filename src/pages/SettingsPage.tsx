@@ -91,6 +91,17 @@ export function SettingsPage() {
         toast.push({ title: t('settings.gta.toastUninstallLocked'), tone: 'error' })
       } else if (result.error === 'cancelled') {
         /* ignore */
+      } else if (result.error === 'close_game_first') {
+        toast.push({ title: t('settings.gta.toastCloseGameFirst'), tone: 'warning' })
+      } else if (result.error === 'elevation_declined') {
+        toast.push({ title: t('settings.gta.toastElevationDeclined'), tone: 'warning' })
+      } else if (result.error === 'game_folder_not_writable') {
+        toast.push({ title: t('settings.gta.toastFolderNotWritable'), tone: 'error' })
+      } else if (
+        result.error?.includes('EPERM') ||
+        result.error?.includes('EACCES')
+      ) {
+        toast.push({ title: t('settings.gta.toastFolderNotWritable'), tone: 'error' })
       } else {
         toast.push({
           title: t('settings.gta.toastFailed', { error: result.error ?? 'unknown' }),

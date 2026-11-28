@@ -589,6 +589,9 @@ namespace GTAMOZA
 
             float bump = Clamp(Math.Abs(vertDelta) / 12f, 0f, 1f);
             if (bump < 0.08f) bump = 0f;
+            // Nose dive / pitch under straight-line brake is not a kerb strike
+            if (brake > 0.32f && Math.Abs(steer) < 0.14f)
+                bump *= Math.Max(0.12f, 1f - (brake - 0.32f) * 0.95f);
             // Spike when landing / material changes under the car
             if (_prevWheelsDown < 3 && wheelsDown >= 3 && speed > 2f)
                 bump = Math.Max(bump, Clamp(speed / 22f, 0.2f, 0.75f));
@@ -598,7 +601,7 @@ namespace GTAMOZA
             _prevWheelsDown = wheelsDown;
 
             float hitHard;
-            float hit = EstimateCollision(veh, speed, accel, accelFwd, accelLat, out hitHard);
+            float hit = EstimateCollision(veh, speed, accel, accelFwd, accelLat, steer, brake, out hitHard);
             // Hold the peak a bit longer so Electron sees a clear spike
             _collisionPulse = Math.Max(_collisionPulse * 0.82f, hit);
             if (hit > 0.06f) _collisionHard = hitHard;
@@ -752,7 +755,7 @@ namespace GTAMOZA
             return mid == "kerb" ? "asphalt" : mid;
         }
 
-        float EstimateCollision(Vehicle veh, float speed, float accel, float accelFwd, float accelLat, out float hardness)
+        float EstimateCollision(Vehicle veh, float speed, float accel, float accelFwd, float accelLat, float steer, float brake, out float hardness)
         {
             hardness = 0.55f;
             float intensity = 0f;
@@ -802,6 +805,16 @@ namespace GTAMOZA
             float decelHit = accel < -4.5f ? Clamp((-accel - 4.5f) / 18f, 0f, 1f) : 0f;
             float fwdHit = fwdDecel > 8f ? Clamp((fwdDecel - 8f) / 22f, 0f, 1f) : 0f;
             float sideHit = latJolt > 9f ? Clamp((latJolt - 9f) / 20f, 0f, 1f) : 0f;
+            // Hard straight-line braking: forward decel and noisy lateral G are not wall hits
+            if (brake > 0.28f && Math.Abs(steer) < 0.16f)
+            {
+                if (!collided && dmg < 0.45f)
+                {
+                    fwdHit *= 0.08f;
+                    decelHit *= 0.08f;
+                }
+                sideHit *= 0.12f;
+            }
             float scrapeHit = 0f;
             if (collided && speed > 3f && dmgHit < 0.08f && decelHit < 0.12f && fwdHit < 0.12f && sideHit < 0.12f)
                 scrapeHit = Clamp(speed / 40f, 0.05f, 0.22f) * (0.5f + 0.5f * hardness);

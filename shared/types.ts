@@ -236,13 +236,13 @@ export const DEFAULT_EFFECTS: EffectsSettings = {
   grass: { enabled: true, strength: 68 },
   suspension: { enabled: true, strength: 80 },
   wheelSlip: { enabled: true, strength: 58 },
-  abs: { enabled: true, strength: 42 },
+  abs: { enabled: true, strength: 38 },
   collision: { enabled: true, strength: 88 },
   engine: { enabled: true, strength: 28 },
 }
 
 /** Stored in profiles.json — bump to re-apply DEFAULT_* / builtin FFB presets. */
-export const FFB_TUNE_REVISION = 30
+export const FFB_TUNE_REVISION = 31
 
 export function createDefaultProfileSettings(): ProfileSettings {
   return {

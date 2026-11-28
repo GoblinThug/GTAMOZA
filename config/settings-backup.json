@@ -3,10 +3,10 @@
   "label": "Ideal settings lock — fat FFB (rev 30)",
   "description": "Full factory restore snapshot of profiles + app settings (pedals, cheats, UI). Used by Restore factory backup.",
   "createdAt": "2026-11-23T12:00:00.000Z",
-  "tuningRevision": 30,
+  "tuningRevision": 31,
   "profiles": {
     "selectedProfileId": "default",
-    "tuningRevision": 30,
+    "tuningRevision": 31,
     "profiles": [
       {
         "id": "default",

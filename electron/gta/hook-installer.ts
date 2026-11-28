@@ -4,7 +4,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-import { execFile } from 'node:child_process'
+import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { app, net } from 'electron'
 
@@ -208,28 +208,206 @@ function findNamedFile(root: string, fileName: string): string | null {
   return null
 }
 
-function copyIfMissing(
+function errnoCode(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err) {
+    return String((err as NodeJS.ErrnoException).code)
+  }
+  return ''
+}
+
+function clearWindowsReadonly(filePath: string): void {
+  if (!exists(filePath)) return
+  try {
+    fs.chmodSync(filePath, 0o666)
+  } catch {
+    /* ignore */
+  }
+  try {
+    execFileSync('attrib', ['-R', filePath], { windowsHide: true })
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Temp file → rename avoids some AV locks; PowerShell fallback on EPERM. */
+async function copyIntoGameDir(src: string, dest: string): Promise<void> {
+  ensureDir(path.dirname(dest))
+  clearWindowsReadonly(dest)
+
+  const tmp = `${dest}.gtamoza.tmp`
+  const tryNode = (): void => {
+    if (exists(tmp)) fs.rmSync(tmp, { force: true })
+    fs.copyFileSync(src, tmp)
+    if (exists(dest)) {
+      clearWindowsReadonly(dest)
+      fs.rmSync(dest, { force: true })
+    }
+    fs.renameSync(tmp, dest)
+  }
+
+  try {
+    tryNode()
+    return
+  } catch (err) {
+    try {
+      fs.rmSync(tmp, { force: true })
+    } catch {
+      /* ignore */
+    }
+    const code = errnoCode(err)
+    if (code !== 'EPERM' && code !== 'EACCES') throw err
+  }
+
+  const cmd = `Copy-Item -LiteralPath '${psQuote(src)}' -Destination '${psQuote(dest)}' -Force`
+  try {
+    await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', cmd],
+      { windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
+    )
+    return
+  } catch {
+    await copySingleFileElevated(src, dest)
+  }
+}
+
+async function runElevatedPowerShellScript(scriptPath: string): Promise<number> {
+  const launcher = `
+$p = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','${psQuote(scriptPath)}') -Verb RunAs -Wait -PassThru
+if ($null -eq $p) { exit 1223 }
+exit $p.ExitCode
+`
+  try {
+    await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', launcher],
+      { windowsHide: true },
+    )
+    return 0
+  } catch (err) {
+    const code = errnoCode(err)
+    if (/^\d+$/.test(code)) return Number(code)
+    if (err && typeof err === 'object' && 'code' in err) {
+      const n = Number((err as { code?: string | number }).code)
+      if (!Number.isNaN(n)) return n
+    }
+    return 1
+  }
+}
+
+async function copySingleFileElevated(src: string, dest: string): Promise<void> {
+  ensureDir(cacheRoot())
+  const scriptPath = path.join(cacheRoot(), 'elevated-copy-one.ps1')
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$src = '${psQuote(src)}'`,
+    `$dest = '${psQuote(dest)}'`,
+    `$dir = Split-Path -LiteralPath $dest -Parent`,
+    `if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }`,
+    `if (Test-Path -LiteralPath $dest) { cmd /c attrib -R "$dest" 2>$null; Remove-Item -LiteralPath $dest -Force }`,
+    `Copy-Item -LiteralPath $src -Destination $dest -Force`,
+  ].join('\n')
+  fs.writeFileSync(scriptPath, script, 'utf8')
+  const code = await runElevatedPowerShellScript(scriptPath)
+  if (code === 1223) throw new Error('elevation_declined')
+  if (code !== 0) throw new Error('game_folder_not_writable')
+  if (!exists(dest)) throw new Error('game_folder_not_writable')
+}
+
+async function copyIfMissing(
   src: string,
   dest: string,
   installed: string[],
   relName: string,
-): void {
+): Promise<void> {
   if (exists(dest)) return
-  ensureDir(path.dirname(dest))
-  fs.copyFileSync(src, dest)
+  await copyIntoGameDir(src, dest)
   installed.push(relName)
 }
 
 /** Always refresh Enhanced ASI loader / args from the SHV package. */
-function copyReplace(
+async function copyReplace(
   src: string,
   dest: string,
   installed: string[],
   relName: string,
-): void {
-  ensureDir(path.dirname(dest))
-  fs.copyFileSync(src, dest)
+): Promise<void> {
+  await copyIntoGameDir(src, dest)
   if (!installed.includes(relName)) installed.push(relName)
+}
+
+function isGameOrLauncherRunning(): boolean {
+  try {
+    const ps =
+      "$n=@('GTA5_Enhanced','GTA5','PlayGTAV','Launcher','SocialClubHelper','RockstarService');" +
+      '(Get-Process -Name $n -ErrorAction SilentlyContinue | Measure-Object).Count'
+    const out = execFileSync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', ps],
+      { encoding: 'utf8', windowsHide: true },
+    )
+    return parseInt(out.trim(), 10) > 0
+  } catch {
+    return false
+  }
+}
+
+function isGameFolderWritable(gamePath: string): boolean {
+  const probe = path.join(gamePath, '.gtamoza_write_probe')
+  try {
+    fs.writeFileSync(probe, 'ok', { encoding: 'utf8' })
+    fs.rmSync(probe, { force: true })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Rockstar / Steam installs often leave the game folder RX-only for Users — grant Modify once. */
+function tryRepairGameFolderWriteAccess(gamePath: string): boolean {
+  try {
+    execFileSync('attrib', ['-R', gamePath], { windowsHide: true })
+  } catch {
+    /* ignore */
+  }
+  return isGameFolderWritable(gamePath)
+}
+
+async function requestElevatedGameFolderAccess(
+  gamePath: string,
+): Promise<{ ok: boolean; error?: string }> {
+  ensureDir(cacheRoot())
+  const scriptPath = path.join(cacheRoot(), 'elevated-grant-write.ps1')
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `$p = '${psQuote(gamePath)}'`,
+    `if (-not (Test-Path -LiteralPath $p)) { exit 2 }`,
+    `cmd /c attrib -R "$p"`,
+    `cmd /c icacls "$p" /grant "$env:USERNAME:(OI)(CI)M"`,
+    `$probe = Join-Path $p '.gtamoza_write_probe'`,
+    `[IO.File]::WriteAllText($probe, 'ok')`,
+    `Remove-Item -LiteralPath $probe -Force`,
+  ].join('\r\n')
+  fs.writeFileSync(scriptPath, script, 'utf8')
+  const code = await runElevatedPowerShellScript(scriptPath)
+  if (code === 1223) return { ok: false, error: 'elevation_declined' }
+  if (code !== 0) return { ok: false, error: 'game_folder_not_writable' }
+  if (!isGameFolderWritable(gamePath)) {
+    return { ok: false, error: 'game_folder_not_writable' }
+  }
+  return { ok: true }
+}
+
+/**
+ * GTA install dirs are often read-only for standard users (RX ACE on BUILTIN\\Users).
+ * One UAC prompt grants Modify so hooks + plugin can copy without running the whole app as admin.
+ */
+export async function ensureGameFolderWritableAccess(
+  gamePath: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (isGameFolderWritable(gamePath)) return { ok: true }
+  if (tryRepairGameFolderWriteAccess(gamePath)) return { ok: true }
+  return requestElevatedGameFolderAccess(gamePath)
 }
 
 async function resolveScriptHookVZipUrl(): Promise<string> {
@@ -291,12 +469,25 @@ async function ensureScriptHookV(
       if (file === 'args.txt') continue
       throw new Error(`scripthookv_missing_${file}`)
     }
+    const dest = path.join(gamePath, file)
     // Force-refresh Enhanced ASI loader — a legacy-only dinput8 install looks "complete"
     // but never loads ScriptHookVDotNet.asi.
     if (file === 'xinput1_4.dll' || file === 'args.txt') {
-      copyReplace(src, path.join(gamePath, file), installed, file)
+      await copyReplace(src, dest, installed, file)
+    } else if (file === 'dinput8.dll') {
+      try {
+        await copyIfMissing(src, dest, installed, file)
+      } catch (err) {
+        // Enhanced uses xinput1_4; legacy dinput8 can be blocked by ACL/BattlEye placeholders.
+        const code = errnoCode(err)
+        if (code === 'EPERM' || code === 'EACCES') {
+          console.warn('[hooks] dinput8.dll not written (optional on Enhanced)', err)
+          continue
+        }
+        throw err
+      }
     } else {
-      copyIfMissing(src, path.join(gamePath, file), installed, file)
+      await copyIfMissing(src, dest, installed, file)
     }
   }
 }
@@ -327,7 +518,7 @@ async function ensureShvdn(gamePath: string, installed: string[]): Promise<void>
       if (file === 'ScriptHookVDotNet.ini' || file === 'MinHook.x64.dll') continue
       throw new Error(`shvdn_missing_${file}`)
     }
-    copyIfMissing(src, path.join(gamePath, file), installed, file)
+    await copyIfMissing(src, path.join(gamePath, file), installed, file)
   }
 }
 
@@ -381,6 +572,9 @@ export async function ensureGameHooksInstalled(
 ): Promise<HookInstallResult> {
   const installed: string[] = []
   try {
+    if (isGameOrLauncherRunning()) {
+      return { ok: false, installed, error: 'close_game_first' }
+    }
     ensureDir(cacheRoot())
     await ensureScriptHookV(gamePath, installed)
     await ensureShvdn(gamePath, installed)

@@ -410,6 +410,12 @@ const en = {
     'GTAMOZA.dll not built. Run npm run build:gta-mod first.',
   'settings.gta.toastInvalid': 'That folder is not GTA V Enhanced',
   'settings.gta.toastFailed': 'Could not change integration: {error}',
+  'settings.gta.toastCloseGameFirst':
+    'Close GTA and Rockstar Launcher completely, then enable Story Mode again.',
+  'settings.gta.toastFolderNotWritable':
+    'Cannot write to the Rockstar game folder (read-only for normal users). Confirm the Windows administrator prompt, or close GTA/R* and try again.',
+  'settings.gta.toastElevationDeclined':
+    'Administrator permission was cancelled — GTAMOZA needs it once to install Script Hook into the game folder.',
   'settings.gta.warning':
     'Script Hook is Story Mode only. If BattlEye blocked dinput8.dll: launch with -nobattleye (button above) or uncheck BattlEye in Rockstar settings. Re-enable BattlEye / remove -nobattleye before Online. Use “Prepare for Online” in this app too.',
   'dashboard.linkGtaBattlEye':
@@ -824,6 +830,12 @@ const ru: Record<MessageKey, string> = {
     'GTAMOZA.dll не собран. Сначала npm run build:gta-mod.',
   'settings.gta.toastInvalid': 'Это не папка GTA V Enhanced',
   'settings.gta.toastFailed': 'Не удалось изменить интеграцию: {error}',
+  'settings.gta.toastCloseGameFirst':
+    'Полностью закрой GTA и Rockstar Launcher и снова нажми «Включить Story Mode».',
+  'settings.gta.toastFolderNotWritable':
+    'Папка Rockstar только для чтения. Подтверди запрос администратора Windows или закрой GTA/R* и повтори.',
+  'settings.gta.toastElevationDeclined':
+    'Права администратора отклонены — без них один раз нельзя поставить Script Hook в папку игры.',
   'settings.gta.warning':
     'Script Hook — только Story Mode. Если BattlEye заблокировал dinput8.dll: запуск с -nobattleye (кнопка выше) или сними галку BattlEye в Rockstar. Перед Online верни BattlEye / убери -nobattleye и жми «Подготовить к Online» здесь.',
   'dashboard.linkGtaBattlEye':
